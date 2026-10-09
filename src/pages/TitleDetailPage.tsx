@@ -163,8 +163,9 @@ export const TitleDetailPage: React.FC = () => {
   }, [id, typeParam]);
 
   // Deduplicate and prioritize famous streaming services first (Netflix, Prime Video, Max, Disney+, Apple TV+, Hulu, etc.)
-  const deduplicatedProviders = useMemo(() => {
-    if (!title?.watchProviders) return [];
+  const { primaryProviders, hiddenProviders, allProvidersCount } = useMemo(() => {
+    if (!title?.watchProviders) return { primaryProviders: [], hiddenProviders: [], allProvidersCount: 0 };
+
     const map = new Map<string, { service: string; type: string; regions: string[] }>();
     for (const wp of title.watchProviders) {
       const key = wp.service.toLowerCase().trim();
@@ -180,29 +181,54 @@ export const TitleDetailPage: React.FC = () => {
 
     const list = Array.from(map.values());
 
-    const FAMOUS_ORDER = [
+    const FAMOUS_SERVICES = [
       'netflix',
       'prime video',
-      'amazon prime video',
       'amazon',
       'max',
-      'hbo max',
+      'hbo',
       'disney+',
       'apple tv+',
       'apple tv',
       'hulu',
       'paramount+',
       'peacock',
-      'youtube tv',
     ];
 
     const getRank = (serviceName: string) => {
-      const lower = serviceName.toLowerCase();
-      const idx = FAMOUS_ORDER.findIndex((f) => lower.includes(f) || f.includes(lower));
+      const lower = serviceName.toLowerCase().trim();
+      const idx = FAMOUS_SERVICES.findIndex((f) => lower.includes(f) || f.includes(lower));
       return idx === -1 ? 999 : idx;
     };
 
-    return list.sort((a, b) => getRank(a.service) - getRank(b.service));
+    const isFamous = (serviceName: string) => getRank(serviceName) !== 999;
+
+    const famous = list
+      .filter((p) => isFamous(p.service))
+      .sort((a, b) => getRank(a.service) - getRank(b.service));
+
+    const others = list
+      .filter((p) => !isFamous(p.service))
+      .sort((a, b) => a.service.localeCompare(b.service));
+
+    // Show up to 4 famous services in primary list; if fewer than 3 famous, fill with others up to 3
+    let primary: typeof list = [];
+    let hidden: typeof list = [];
+
+    if (famous.length >= 3) {
+      const primaryCount = Math.min(famous.length, 4);
+      primary = famous.slice(0, primaryCount);
+      hidden = [...famous.slice(primaryCount), ...others];
+    } else {
+      primary = [...famous, ...others.slice(0, Math.max(0, 3 - famous.length))];
+      hidden = others.slice(Math.max(0, 3 - famous.length));
+    }
+
+    return {
+      primaryProviders: primary,
+      hiddenProviders: hidden,
+      allProvidersCount: list.length,
+    };
   }, [title?.watchProviders]);
 
   const handlePostComment = async (e: React.FormEvent) => {
@@ -1320,41 +1346,82 @@ export const TitleDetailPage: React.FC = () => {
 
         {/* Right Sidebar: Deduplicated Streaming Providers & Soundtracks */}
         <div className="space-y-6">
-          {/* Where to Stream (Deduplicated with Region Tags) */}
+          {/* Where to Stream (Famous Global Platforms First + Collapsible Others) */}
           <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-sm space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Tv className="w-3.5 h-3.5 text-cyan-400" /> Where to Stream
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Tv className="w-3.5 h-3.5 text-cyan-400" /> Where to Stream
+              </h2>
+              {allProvidersCount > 0 && (
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {allProvidersCount} source{allProvidersCount === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
 
-            {deduplicatedProviders.length > 0 ? (
+            {primaryProviders.length > 0 ? (
               <div className="space-y-2">
-                {(showAllProviders
-                  ? deduplicatedProviders
-                  : deduplicatedProviders.slice(0, 4)
-                ).map((wp, idx) => (
+                {/* Most Famous Streaming Platforms (Top 3-4 e.g. Netflix, Prime Video, Max, etc.) */}
+                {primaryProviders.map((wp, idx) => (
                   <div
-                    key={idx}
-                    className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
+                    key={`prim-${idx}`}
+                    className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between group shadow-sm"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <StreamingBadge service={wp.service} size="sm" />
-                      <div>
-                        <span className="text-xs font-semibold text-slate-200 block">
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-slate-200 block truncate group-hover:text-white transition-colors">
                           {wp.service}
                         </span>
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-slate-500 block truncate">
                           {wp.regions.join(' • ')}
                         </span>
                       </div>
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                    <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/80 shrink-0">
                       {wp.type}
                     </span>
                   </div>
                 ))}
 
+                {/* Collapsible Other Services (e.g. YouTube TV, TBS, JioHotstar, Crave, etc.) */}
+                {showAllProviders && hiddenProviders.length > 0 && (
+                  <div className="pt-2.5 space-y-2 border-t border-slate-800/70 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Additional & Regional Networks
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {hiddenProviders.length} platforms
+                      </span>
+                    </div>
+
+                    {hiddenProviders.map((wp, idx) => (
+                      <div
+                        key={`hidden-${idx}`}
+                        className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <StreamingBadge service={wp.service} size="sm" />
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-slate-300 block truncate">
+                              {wp.service}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block truncate">
+                              {wp.regions.join(' • ')}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] uppercase font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 shrink-0">
+                          {wp.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* See All / Show Less Toggle Button */}
-                {deduplicatedProviders.length > 4 && (
+                {hiddenProviders.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowAllProviders(!showAllProviders)}
@@ -1369,7 +1436,7 @@ export const TitleDetailPage: React.FC = () => {
                       <>
                         <ChevronDown className="w-3.5 h-3.5" />
                         <span>
-                          See All Available Sources ({deduplicatedProviders.length - 4} more)
+                          See All Available Sources ({hiddenProviders.length} more)
                         </span>
                       </>
                     )}

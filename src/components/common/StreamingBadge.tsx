@@ -178,6 +178,68 @@ export const StreamingBadge: React.FC<StreamingBadgeProps> = ({
     );
   }
 
+  if (norm.includes('paramount')) {
+    return (
+      <span
+        title="Paramount+"
+        className={`inline-flex items-center rounded-lg font-semibold bg-[#002244] hover:bg-[#003366] text-white border border-[#0064FF]/40 shadow-sm transition-all duration-200 ${sizeClasses[size]} ${className}`}
+      >
+        <span className="font-black italic tracking-tighter text-[#0080FF]">P+</span>
+        {showLabel && <span className="font-bold tracking-tight text-blue-200">Paramount+</span>}
+      </span>
+    );
+  }
+
+  if (norm.includes('peacock')) {
+    return (
+      <span
+        title="Peacock"
+        className={`inline-flex items-center rounded-lg font-semibold bg-[#0f172a] hover:bg-[#1e293b] text-white border border-[#06b6d4]/40 shadow-sm transition-all duration-200 ${sizeClasses[size]} ${className}`}
+      >
+        <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 shrink-0"></span>
+        {showLabel && <span className="font-bold tracking-tight text-cyan-200">Peacock</span>}
+      </span>
+    );
+  }
+
+  if (norm.includes('youtube')) {
+    return (
+      <span
+        title="YouTube TV"
+        className={`inline-flex items-center rounded-lg font-semibold bg-[#1a0505] hover:bg-[#2a0808] text-white border border-[#FF0000]/40 shadow-sm transition-all duration-200 ${sizeClasses[size]} ${className}`}
+      >
+        <svg viewBox="0 0 24 24" fill="#FF0000" className={`${iconSizes[size]} shrink-0`}>
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+        </svg>
+        {showLabel && <span className="font-bold tracking-tight text-red-200">YouTube TV</span>}
+      </span>
+    );
+  }
+
+  if (norm.includes('hotstar')) {
+    return (
+      <span
+        title="JioHotstar"
+        className={`inline-flex items-center rounded-lg font-semibold bg-[#0c142b] hover:bg-[#132047] text-white border border-blue-500/30 shadow-sm transition-all duration-200 ${sizeClasses[size]} ${className}`}
+      >
+        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+        {showLabel && <span className="font-bold tracking-tight text-blue-200">Hotstar</span>}
+      </span>
+    );
+  }
+
+  if (norm.includes('crave')) {
+    return (
+      <span
+        title="Crave"
+        className={`inline-flex items-center rounded-lg font-semibold bg-[#091b36] hover:bg-[#0f2c57] text-white border border-sky-500/40 shadow-sm transition-all duration-200 ${sizeClasses[size]} ${className}`}
+      >
+        <span className="font-black tracking-tight text-sky-400">C</span>
+        {showLabel && <span className="font-bold tracking-tight text-sky-200">Crave</span>}
+      </span>
+    );
+  }
+
   // Fallback for others
   return (
     <span
