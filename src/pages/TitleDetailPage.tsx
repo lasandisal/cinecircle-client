@@ -28,6 +28,9 @@ import {
   Disc,
   Volume2,
   ExternalLink,
+  Search,
+  Plus,
+  X,
 } from 'lucide-react';
 import { titleService } from '../services/title.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
@@ -89,6 +92,74 @@ export const TitleDetailPage: React.FC = () => {
   const [activePlayingSong, setActivePlayingSong] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  // Soundtrack search filter & user contribution state
+  const [soundtrackSearchQuery, setSoundtrackSearchQuery] = useState('');
+  const [showAllSoundtracks, setShowAllSoundtracks] = useState(false);
+  const [showAddSongModal, setShowAddSongModal] = useState(false);
+  const [addSongQuery, setAddSongQuery] = useState('');
+  const [addSongSearching, setAddSongSearching] = useState(false);
+  const [addSongResults, setAddSongResults] = useState<any[]>([]);
+  const [selectedAddSong, setSelectedAddSong] = useState<any | null>(null);
+  const [addSongSceneRef, setAddSongSceneRef] = useState('');
+  const [submittingAddSong, setSubmittingAddSong] = useState(false);
+  const [addSongSuccess, setAddSongSuccess] = useState<string | null>(null);
+
+  const handleSearchMusic = async (q: string) => {
+    if (!q.trim()) {
+      setAddSongResults([]);
+      return;
+    }
+    setAddSongSearching(true);
+    try {
+      const results = await titleService.searchMusic(q.trim());
+      setAddSongResults(results || []);
+    } catch (err) {
+      console.error('Failed to search music:', err);
+    } finally {
+      setAddSongSearching(false);
+    }
+  };
+
+  const handleAddSoundtrackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAddSong || (!title?._id && !id)) return;
+    setSubmittingAddSong(true);
+    try {
+      const payload = {
+        songName: selectedAddSong.songName,
+        artist: selectedAddSong.artist,
+        episodeRef: addSongSceneRef.trim() || undefined,
+        previewUrl: selectedAddSong.previewUrl,
+        albumArtUrl: selectedAddSong.albumArtUrl,
+        spotifyUrl: selectedAddSong.spotifyUrl,
+      };
+      const created = await titleService.addSoundtrack(title?._id || id!, payload);
+      if (created) {
+        setTitle((prev) => {
+          if (!prev) return prev;
+          const currentSoundtracks = prev.soundtracks || [];
+          return {
+            ...prev,
+            soundtracks: [created, ...currentSoundtracks],
+          };
+        });
+        setAddSongSuccess(`"${created.songName}" added to the soundtrack!`);
+        setTimeout(() => {
+          setShowAddSongModal(false);
+          setSelectedAddSong(null);
+          setAddSongQuery('');
+          setAddSongResults([]);
+          setAddSongSceneRef('');
+          setAddSongSuccess(null);
+        }, 1500);
+      }
+    } catch (err) {
+      console.error('Failed to add track:', err);
+    } finally {
+      setSubmittingAddSong(false);
+    }
+  };
 
   const handleTogglePlaySong = (songName: string, previewUrl?: string) => {
     if (activePlayingSong === songName) {
@@ -268,17 +339,27 @@ export const TitleDetailPage: React.FC = () => {
     };
   }, [title?.watchProviders]);
 
-  // Deduplicate soundtracks by song name & artist
+  // Deduplicate and filter soundtracks by song name & artist & search query
   const uniqueSoundtracks = useMemo(() => {
     if (!title?.soundtracks) return [];
     const seen = new Set<string>();
-    return title.soundtracks.filter((track) => {
+    const deduplicated = title.soundtracks.filter((track) => {
       const key = `${track.songName.toLowerCase().trim()}-${track.artist.toLowerCase().trim()}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  }, [title?.soundtracks]);
+
+    if (!soundtrackSearchQuery.trim()) return deduplicated;
+
+    const q = soundtrackSearchQuery.toLowerCase().trim();
+    return deduplicated.filter(
+      (t) =>
+        t.songName.toLowerCase().includes(q) ||
+        t.artist.toLowerCase().includes(q) ||
+        (t.episodeRef && t.episodeRef.toLowerCase().includes(q))
+    );
+  }, [title?.soundtracks, soundtrackSearchQuery]);
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -840,19 +921,34 @@ export const TitleDetailPage: React.FC = () => {
 
                               {/* Featured Song / Music in Episode */}
                               {ep.featuredSong && (
-                                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3">
+                                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                                      <Music className="w-3.5 h-3.5" />
+                                    <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                      {ep.featuredSong.albumArtUrl ? (
+                                        <img
+                                          src={ep.featuredSong.albumArtUrl}
+                                          alt={ep.featuredSong.songName}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <Music className="w-4 h-4" />
+                                      )}
                                     </div>
                                     <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="text-[11px] font-bold text-white truncate">
                                           {ep.featuredSong.songName}
                                         </span>
                                         <span className="text-[10px] text-slate-400 truncate">
                                           • {ep.featuredSong.artist}
                                         </span>
+                                        {activePlayingSong === ep.featuredSong.songName && (
+                                          <div className="flex items-center gap-0.5 ml-1">
+                                            <span className="w-1 h-2.5 bg-emerald-400 rounded-full animate-bounce"></span>
+                                            <span className="w-1 h-3.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                            <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                          </div>
+                                        )}
                                       </div>
                                       {ep.featuredSong.sceneRef && (
                                         <p className="text-[10px] text-emerald-300/80 truncate">
@@ -862,9 +958,52 @@ export const TitleDetailPage: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0 flex items-center gap-1">
-                                    <Volume2 className="w-2.5 h-2.5" /> Featured Song
-                                  </span>
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                    {ep.featuredSong.previewUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleTogglePlaySong(
+                                            ep.featuredSong!.songName,
+                                            ep.featuredSong!.previewUrl
+                                          )
+                                        }
+                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                                          activePlayingSong === ep.featuredSong.songName
+                                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
+                                            : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
+                                        }`}
+                                      >
+                                        {activePlayingSong === ep.featuredSong.songName ? (
+                                          <>
+                                            <Pause className="w-3 h-3 fill-current" />
+                                            <span>Pause</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="w-3 h-3 fill-current" />
+                                            <span>30s Sample</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
+
+                                    {ep.featuredSong.spotifyUrl && (
+                                      <a
+                                        href={ep.featuredSong.spotifyUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Open in Apple Music / iTunes"
+                                        className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all text-xs"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    )}
+
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0 flex items-center gap-1">
+                                      <Volume2 className="w-2.5 h-2.5" /> Iconic Scene Music
+                                    </span>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -881,154 +1020,429 @@ export const TitleDetailPage: React.FC = () => {
           )}
 
           {/* Dedicated Official Soundtrack & Iconic Featured Songs Section */}
-          {uniqueSoundtracks.length > 0 && (
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 sm:p-6 backdrop-blur-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <Disc className={`w-4 h-4 ${activePlayingSong ? 'animate-spin' : ''}`} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                      Official Soundtrack & Iconic Featured Songs
-                      <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        30s Audio Previews
-                      </span>
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Iconic tracks played in pivotal scenes throughout {title.name}
-                    </p>
-                  </div>
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 sm:p-6 backdrop-blur-sm space-y-4">
+            {/* Header with Search Filter & Add Song Trigger */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Disc className={`w-4 h-4 ${activePlayingSong ? 'animate-spin' : ''}`} />
                 </div>
-                <span className="text-[11px] text-slate-500 font-mono self-start sm:self-auto">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
+                    Official Soundtrack & Iconic Featured Songs
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      30s Audio Previews
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Iconic needle-drops and pivotal scene anthems throughout {title.name}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Controls: Search Filter & Suggest Song */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Search / Filter Input */}
+                <div className="relative flex-1 sm:w-56">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={soundtrackSearchQuery}
+                    onChange={(e) => setSoundtrackSearchQuery(e.target.value)}
+                    placeholder="Filter songs or scenes..."
+                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                  />
+                  {soundtrackSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSoundtrackSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Suggest / Add Song Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowAddSongModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Suggest Song</span>
+                </button>
+
+                {/* Counter */}
+                <span className="text-[11px] text-slate-500 font-mono shrink-0 hidden sm:inline">
                   {uniqueSoundtracks.length} track{uniqueSoundtracks.length === 1 ? '' : 's'}
                 </span>
               </div>
+            </div>
 
-              {/* Modern User-Friendly Tracklist */}
+            {/* Modern User-Friendly Tracklist */}
+            {uniqueSoundtracks.length === 0 ? (
+              <div className="text-center py-8 space-y-2">
+                <Music className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="text-xs text-slate-400">
+                  {soundtrackSearchQuery
+                    ? `No songs matching "${soundtrackSearchQuery}"`
+                    : 'No soundtrack entries recorded yet.'}
+                </p>
+                {soundtrackSearchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSoundtrackSearchQuery('')}
+                    className="text-xs text-emerald-400 hover:underline"
+                  >
+                    Clear filter
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSongModal(true)}
+                    className="text-xs text-emerald-400 hover:underline"
+                  >
+                    Be the first to suggest an iconic song!
+                  </button>
+                )}
+              </div>
+            ) : (
               <div className="space-y-2">
-                {uniqueSoundtracks.map((track, idx) => {
-                  const isPlaying = activePlayingSong === track.songName;
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
-                        isPlaying
-                          ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                          : 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700/90 hover:bg-slate-950/90'
-                      }`}
-                    >
-                      {/* Left: Track # + Album Art + Song Name & Artist */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Index Number */}
-                        <span className="text-xs font-mono font-bold text-slate-500 w-5 text-center shrink-0">
-                          {idx + 1}
-                        </span>
+                {(showAllSoundtracks ? uniqueSoundtracks : uniqueSoundtracks.slice(0, 6)).map(
+                  (track, idx) => {
+                    const isPlaying = activePlayingSong === track.songName;
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
+                          isPlaying
+                            ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                            : 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700/90 hover:bg-slate-950/90'
+                        }`}
+                      >
+                        {/* Left: Track # + Album Art + Song Name & Artist */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Index Number */}
+                          <span className="text-xs font-mono font-bold text-slate-500 w-5 text-center shrink-0">
+                            {idx + 1}
+                          </span>
 
-                        {/* Album Art or Vinyl Icon */}
-                        <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-slate-900 border border-slate-800 shrink-0 group/cover">
-                          {track.albumArtUrl ? (
-                            <img
-                              src={track.albumArtUrl}
-                              alt={track.songName}
-                              className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-500">
-                              <Music className="w-5 h-5" />
-                            </div>
-                          )}
-                          {/* Overlay Play/Pause Icon */}
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
-                            className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity cursor-pointer ${
-                              isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                            }`}
-                          >
-                            {isPlaying ? (
-                              <Pause className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                          {/* Album Art or Vinyl Icon */}
+                          <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-slate-900 border border-slate-800 shrink-0 group/cover">
+                            {track.albumArtUrl ? (
+                              <img
+                                src={track.albumArtUrl}
+                                alt={track.songName}
+                                className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform"
+                              />
                             ) : (
-                              <Play className="w-4 h-4 text-white fill-white ml-0.5" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Track Details */}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
-                              {track.songName}
-                            </p>
-                            {isPlaying && (
-                              <div className="flex items-center gap-0.5">
-                                <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce"></span>
-                                <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                                <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                              <div className="w-full h-full flex items-center justify-center text-slate-500">
+                                <Music className="w-5 h-5" />
                               </div>
                             )}
+                            {/* Overlay Play/Pause Icon */}
+                            {track.previewUrl && (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                                className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity cursor-pointer ${
+                                  isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                }`}
+                              >
+                                {isPlaying ? (
+                                  <Pause className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                                ) : (
+                                  <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                                )}
+                              </button>
+                            )}
                           </div>
-                          <p className="text-[11px] text-slate-400 truncate">{track.artist}</p>
-                          {track.episodeRef && (
-                            <p className="text-[10px] text-emerald-400/90 font-medium truncate mt-0.5 sm:hidden">
+
+                          {/* Track Details */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
+                                {track.songName}
+                              </p>
+                              {isPlaying && (
+                                <div className="flex items-center gap-0.5">
+                                  <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce"></span>
+                                  <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                  <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 truncate">{track.artist}</p>
+                            {track.episodeRef && (
+                              <p className="text-[10px] text-emerald-400/90 font-medium truncate mt-0.5 sm:hidden">
+                                {track.episodeRef}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Middle: Scene / Episode Context Tag (Desktop) */}
+                        {track.episodeRef && (
+                          <div className="hidden sm:block max-w-xs text-right">
+                            <span className="inline-block text-[10px] text-slate-300 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800 truncate">
                               {track.episodeRef}
-                            </p>
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Right: Audio Action Controls */}
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                          {track.previewUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                                isPlaying
+                                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              {isPlaying ? (
+                                <>
+                                  <Pause className="w-3.5 h-3.5 fill-current" />
+                                  <span>Pause</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  <span>30s Sample</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 italic">No preview</span>
+                          )}
+
+                          {track.spotifyUrl && (
+                            <a
+                              href={track.spotifyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open full track in Apple Music / iTunes"
+                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all text-xs"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
                           )}
                         </div>
                       </div>
+                    );
+                  }
+                )}
 
-                      {/* Middle: Scene / Episode Context Tag (Desktop) */}
-                      {track.episodeRef && (
-                        <div className="hidden sm:block max-w-xs text-right">
-                          <span className="inline-block text-[10px] text-slate-300 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800 truncate">
-                            {track.episodeRef}
-                          </span>
-                        </div>
+                {/* Show All / Show Less Toggle Button */}
+                {uniqueSoundtracks.length > 6 && (
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSoundtracks(!showAllSoundtracks)}
+                      className="px-4 py-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800 text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {showAllSoundtracks ? (
+                        <>
+                          <ChevronUp className="w-3.5 h-3.5" />
+                          <span>Show Top 6 Tracks</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3.5 h-3.5" />
+                          <span>View All {uniqueSoundtracks.length} Tracks</span>
+                        </>
                       )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-                      {/* Right: Audio Action Controls */}
-                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                        {track.previewUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                              isPlaying
-                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
-                                : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
+          {/* Modal: Suggest / Add Song to Soundtrack */}
+          {showAddSongModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Music className="w-4 h-4 text-emerald-400" />
+                      Suggest Song for {title.name}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Search Apple Music for needle-drops, cast covers, or viral scene anthems
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSongModal(false);
+                      setSelectedAddSong(null);
+                      setAddSongQuery('');
+                      setAddSongResults([]);
+                      setAddSongSuccess(null);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {addSongSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{addSongSuccess}</span>
+                  </div>
+                )}
+
+                {/* Live Music Search Form */}
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={addSongQuery}
+                        onChange={(e) => setAddSongQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSearchMusic(addSongQuery);
+                          }
+                        }}
+                        placeholder={`Search track or artist (e.g. Kids in America, Tom Odell)...`}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSearchMusic(addSongQuery)}
+                      disabled={addSongSearching || !addSongQuery.trim()}
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 text-xs font-bold transition-all cursor-pointer shrink-0"
+                    >
+                      {addSongSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+                    </button>
+                  </div>
+
+                  {/* Search Results */}
+                  {addSongResults.length > 0 && (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      <p className="text-[11px] font-semibold text-slate-400">
+                        Select matching track:
+                      </p>
+                      {addSongResults.map((song, i) => {
+                        const isSelected =
+                          selectedAddSong?.songName === song.songName &&
+                          selectedAddSong?.artist === song.artist;
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => setSelectedAddSong(song)}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-emerald-950/60 border-emerald-500 text-white'
+                                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300'
                             }`}
                           >
-                            {isPlaying ? (
-                              <>
-                                <Pause className="w-3.5 h-3.5 fill-current" />
-                                <span>Pause</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                <span>30s Sample</span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 italic">No audio preview</span>
-                        )}
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-900 shrink-0">
+                                {song.albumArtUrl ? (
+                                  <img
+                                    src={song.albumArtUrl}
+                                    alt={song.songName}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Music className="w-4 h-4 text-slate-500 m-2" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold truncate text-white">
+                                  {song.songName}
+                                </p>
+                                <p className="text-[11px] text-slate-400 truncate">{song.artist}</p>
+                              </div>
+                            </div>
 
-                        {track.spotifyUrl && (
-                          <a
-                            href={track.spotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open full track in Apple Music / iTunes"
-                            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all text-xs"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {song.previewUrl && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleTogglePlaySong(song.songName, song.previewUrl);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800"
+                                >
+                                  {activePlayingSong === song.songName ? (
+                                    <Pause className="w-3 h-3 fill-current" />
+                                  ) : (
+                                    <Play className="w-3 h-3 fill-current ml-0.5" />
+                                  )}
+                                </button>
+                              )}
+                              <span
+                                className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
+                                  isSelected
+                                    ? 'bg-emerald-500 text-slate-950'
+                                    : 'bg-slate-800 text-slate-300'
+                                }`}
+                              >
+                                {isSelected ? 'Selected' : 'Pick'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  )}
+
+                  {/* Scene Reference & Confirmation */}
+                  {selectedAddSong && (
+                    <form onSubmit={handleAddSoundtrackSubmit} className="space-y-3 pt-2 border-t border-slate-800">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">
+                          Scene or Episode Context (Optional):
+                        </label>
+                        <input
+                          type="text"
+                          value={addSongSceneRef}
+                          onChange={(e) => setAddSongSceneRef(e.target.value)}
+                          placeholder="e.g. Season 1 Finale - Homecoming / Jubilee Performance"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAddSong(null);
+                            setShowAddSongModal(false);
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingAddSong}
+                          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          {submittingAddSong ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          <span>Add to Soundtrack</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
             </div>
           )}

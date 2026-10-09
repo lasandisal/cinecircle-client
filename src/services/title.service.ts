@@ -132,4 +132,31 @@ export const titleService = {
     const res = await api.post('/titles/seed', null, { params: { force } });
     return res.data.data;
   },
+
+  /**
+   * Search iTunes music directly for soundtrack suggestions
+   */
+  async searchMusic(query: string) {
+    const res = await api.get('/titles/music/search', { params: { q: query } });
+    return res.data.data.tracks;
+  },
+
+  /**
+   * Add a song to a title's soundtrack catalog
+   */
+  async addSoundtrack(
+    titleId: string,
+    payload: {
+      songName: string;
+      artist: string;
+      episodeRef?: string;
+      previewUrl?: string;
+      albumArtUrl?: string;
+      spotifyUrl?: string;
+    }
+  ) {
+    const res = await api.post(`/titles/${titleId}/soundtracks`, payload);
+    return res.data.data.soundtrack;
+  },
 };
+
