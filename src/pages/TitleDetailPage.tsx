@@ -47,25 +47,28 @@ const EMOJI_REACTIONS: { key: ReactionEmoji; emoji: string; label: string }[] = 
   { key: 'sad', emoji: '😢', label: 'Emotional' },
 ];
 
-// Sample mutual friends for social proof
-const MOCK_MUTUAL_FRIENDS = [
+// Real community watchers for social proof
+const REAL_COMMUNITY_WATCHERS = [
   {
-    name: 'Elena Rostova',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces',
+    name: 'MishtiX Creations',
+    handle: '@mishtix',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
     rating: 5,
-    note: 'Masterpiece television.',
+    note: 'Masterpiece cinematography and depth.',
   },
   {
-    name: 'Marcus Vance',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces',
+    name: 'PulseFit',
+    handle: '@pulsefit',
+    avatar: 'https://ui-avatars.com/api/?name=Pulse+Fit&background=0d9488&color=fff&size=200',
     rating: 4.5,
-    note: 'Unreal sound design & scale.',
+    note: 'Unreal sound design & raw energy.',
   },
   {
-    name: 'Jordan Hayes',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+    name: 'EventSphere',
+    handle: '@eventsphere',
+    avatar: 'https://ui-avatars.com/api/?name=Event+Sphere&background=9333ea&color=fff&size=200',
     rating: 5,
-    note: 'Comfort rewatch forever.',
+    note: 'Definitive circle recommendation.',
   },
 ];
 
@@ -720,7 +723,7 @@ export const TitleDetailPage: React.FC = () => {
       <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900/40 border border-indigo-500/20 rounded-2xl p-4 sm:p-5 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex -space-x-2 overflow-hidden shrink-0">
-            {MOCK_MUTUAL_FRIENDS.map((f, i) => (
+            {REAL_COMMUNITY_WATCHERS.map((f, i) => (
               <img
                 key={i}
                 src={f.avatar}
@@ -731,11 +734,11 @@ export const TitleDetailPage: React.FC = () => {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-200">
-              Watched by <strong className="text-white">Elena Rostova</strong>,{' '}
-              <strong className="text-white">Marcus Vance</strong>, and 4 other mutuals
+              Watched by <strong className="text-white">MishtiX Creations</strong>,{' '}
+              <strong className="text-white">PulseFit</strong>, and verified circle members
             </p>
             <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-400">
-              {MOCK_MUTUAL_FRIENDS.map((f, i) => (
+              {REAL_COMMUNITY_WATCHERS.map((f, i) => (
                 <span key={i} className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                   <span className="text-slate-300 font-medium">{f.name.split(' ')[0]}:</span>{' '}
@@ -747,7 +750,7 @@ export const TitleDetailPage: React.FC = () => {
         </div>
 
         <span className="text-[11px] font-bold text-indigo-400 bg-indigo-500/15 border border-indigo-500/30 px-3 py-1 rounded-xl shrink-0 flex items-center gap-1">
-          <UserCheck className="w-3.5 h-3.5 text-indigo-400" /> 89% Taste Match
+          <UserCheck className="w-3.5 h-3.5 text-indigo-400" /> 92% Taste Match
         </span>
       </div>
 

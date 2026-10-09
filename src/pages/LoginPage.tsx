@@ -130,8 +130,8 @@ export const LoginPage: React.FC = () => {
 
   const handleQuickDemo = () => {
     setAuthMode('password');
-    setEmail('admin@cinecircle.test');
-    setPassword('AdminPass123!');
+    setEmail('lasandisalwathura@gmail.com');
+    setPassword('Password123!');
     setLocalError(null);
   };
 
@@ -430,7 +430,7 @@ export const LoginPage: React.FC = () => {
               className="w-full py-2 px-3 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 text-[11px] font-medium text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-all"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Fill Demo Admin Credentials</span>
+              <span>Fill Admin Credentials (lasandisalwathura@gmail.com)</span>
             </button>
           </div>
 
