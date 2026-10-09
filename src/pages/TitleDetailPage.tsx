@@ -85,6 +85,7 @@ export const TitleDetailPage: React.FC = () => {
   const [expandedEpisode, setExpandedEpisode] = useState<number | null>(null);
   const [loadingSeasonEpisodes, setLoadingSeasonEpisodes] = useState<boolean>(false);
   const [activePlayingSong, setActivePlayingSong] = useState<string | null>(null);
+  const [showAllProviders, setShowAllProviders] = useState(false);
 
   const handleSelectSeason = async (seasonNum: number) => {
     setSelectedSeason(seasonNum);
@@ -161,7 +162,7 @@ export const TitleDetailPage: React.FC = () => {
     fetchDetails();
   }, [id, typeParam]);
 
-  // Deduplicate watch providers (group by service and list regions)
+  // Deduplicate and prioritize famous streaming services first (Netflix, Prime Video, Max, Disney+, Apple TV+, Hulu, etc.)
   const deduplicatedProviders = useMemo(() => {
     if (!title?.watchProviders) return [];
     const map = new Map<string, { service: string; type: string; regions: string[] }>();
@@ -176,7 +177,32 @@ export const TitleDetailPage: React.FC = () => {
         }
       }
     }
-    return Array.from(map.values());
+
+    const list = Array.from(map.values());
+
+    const FAMOUS_ORDER = [
+      'netflix',
+      'prime video',
+      'amazon prime video',
+      'amazon',
+      'max',
+      'hbo max',
+      'disney+',
+      'apple tv+',
+      'apple tv',
+      'hulu',
+      'paramount+',
+      'peacock',
+      'youtube tv',
+    ];
+
+    const getRank = (serviceName: string) => {
+      const lower = serviceName.toLowerCase();
+      const idx = FAMOUS_ORDER.findIndex((f) => lower.includes(f) || f.includes(lower));
+      return idx === -1 ? 999 : idx;
+    };
+
+    return list.sort((a, b) => getRank(a.service) - getRank(b.service));
   }, [title?.watchProviders]);
 
   const handlePostComment = async (e: React.FormEvent) => {
@@ -1302,7 +1328,10 @@ export const TitleDetailPage: React.FC = () => {
 
             {deduplicatedProviders.length > 0 ? (
               <div className="space-y-2">
-                {deduplicatedProviders.map((wp, idx) => (
+                {(showAllProviders
+                  ? deduplicatedProviders
+                  : deduplicatedProviders.slice(0, 4)
+                ).map((wp, idx) => (
                   <div
                     key={idx}
                     className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
@@ -1323,6 +1352,29 @@ export const TitleDetailPage: React.FC = () => {
                     </span>
                   </div>
                 ))}
+
+                {/* See All / Show Less Toggle Button */}
+                {deduplicatedProviders.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllProviders(!showAllProviders)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-950/60 hover:bg-slate-800/60 border border-slate-800/80 hover:border-slate-700 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                  >
+                    {showAllProviders ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Show Less</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>
+                          See All Available Sources ({deduplicatedProviders.length - 4} more)
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             ) : (
               <p className="text-xs text-slate-500">
