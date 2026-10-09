@@ -11,6 +11,8 @@ import { CuratorDashboardPage } from '../pages/CuratorDashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { ProtectedRoute } from './ProtectedRoute';
+import { GuestRoute } from './GuestRoute';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -20,13 +22,42 @@ export const AppRoutes: React.FC = () => {
         <Route path="recommend" element={<SoloRecommendationPage />} />
         <Route path="group" element={<GroupSessionPage />} />
         <Route path="title/:id" element={<TitleDetailPage />} />
-        <Route path="watchlist" element={<WatchlistPage />} />
+        <Route
+          path="watchlist"
+          element={
+            <ProtectedRoute>
+              <WatchlistPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="profile/:id" element={<ProfilePage />} />
-        <Route path="curator" element={<CuratorDashboardPage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
+        <Route
+          path="curator"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <CuratorDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="login"
+          element={
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="register"
+          element={
+            <GuestRoute>
+              <RegisterPage />
+            </GuestRoute>
+          }
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );
 };
+

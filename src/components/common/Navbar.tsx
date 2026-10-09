@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   Users,
@@ -7,11 +7,42 @@ import {
   Search,
   Plus,
   X,
+  LogOut,
+  User as UserIcon,
+  ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { NotificationsDropdown } from './NotificationsDropdown';
+import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux';
+import { logout } from '../../store/slices/authSlice';
 
 export const Navbar: React.FC = () => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSignOut = () => {
+    setProfileDropdownOpen(false);
+    dispatch(logout());
+    navigate('/login');
+  };
+
+  const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/85 border-b border-slate-800/80">
@@ -101,7 +132,7 @@ export const Navbar: React.FC = () => {
           </NavLink>
         </nav>
 
-        {/* Right Section: Mobile Search trigger, notifications, and profile */}
+        {/* Right Section: Mobile Search trigger, notifications, and profile/auth */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Mobile search toggle */}
           <button
@@ -112,7 +143,7 @@ export const Navbar: React.FC = () => {
             {mobileSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
           </button>
 
-          {/* Desktop New Circle Button */}
+          {/* New Circle CTA button */}
           <Link
             to="/group"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/25 transition-all"
@@ -124,20 +155,102 @@ export const Navbar: React.FC = () => {
           {/* Notifications Dropdown */}
           <NotificationsDropdown />
 
-          {/* User Profile */}
-          <Link
-            to="/profile/me"
-            className="flex items-center gap-2 p-0.5 sm:p-1 rounded-xl hover:bg-slate-900/60 border border-transparent hover:border-slate-800 transition-all group"
-          >
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-              alt="Lasandi"
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover ring-1 ring-slate-800 group-hover:ring-indigo-500/50"
-            />
-            <span className="text-xs font-semibold text-slate-200 hidden lg:inline group-hover:text-white">
-              Lasandi
-            </span>
-          </Link>
+          {/* User Profile / Auth State */}
+          {isAuthenticated ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-900/80 border border-transparent hover:border-slate-800 transition-all cursor-pointer group"
+                aria-label="User Menu"
+              >
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-1 ring-slate-800 group-hover:ring-indigo-500/50">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-full h-full rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span>{userInitial}</span>
+                  )}
+                </div>
+                <span className="text-xs font-semibold text-slate-200 hidden lg:inline group-hover:text-white max-w-[100px] truncate">
+                  {user?.name || 'User'}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 hidden lg:block" />
+              </button>
+
+              {/* Profile Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 shadow-2xl shadow-black/70 z-50 animate-in fade-in duration-150 space-y-1">
+                  {/* User snippet */}
+                  <div className="px-3 py-2 border-b border-slate-800">
+                    <p className="text-xs font-bold text-white truncate">{user?.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+                    {user?.role === 'admin' && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        <ShieldCheck className="w-3 h-3 text-indigo-400" /> Admin Curator
+                      </span>
+                    )}
+                  </div>
+
+                  <Link
+                    to={`/profile/${user?._id || 'me'}`}
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors"
+                  >
+                    <UserIcon className="w-4 h-4 text-indigo-400" />
+                    <span>My Profile</span>
+                  </Link>
+
+                  <Link
+                    to="/watchlist"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors"
+                  >
+                    <Bookmark className="w-4 h-4 text-amber-400" />
+                    <span>Watchlist</span>
+                  </Link>
+
+                  {user?.role === 'admin' && (
+                    <Link
+                      to="/curator"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-950/40 transition-colors"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                      <span>Curator Dashboard</span>
+                    </Link>
+                  )}
+
+                  <div className="pt-1 border-t border-slate-800">
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-400" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/login"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 transition-all"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-600/20 transition-all"
+              >
+                Get Started
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 

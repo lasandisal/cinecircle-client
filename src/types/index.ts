@@ -7,6 +7,9 @@ export interface User {
   role: UserRole;
   subscribedServices: string[];
   fatigueCount: number;
+  avatar?: string;
+  handle?: string;
+  tasteProfile?: string;
 }
 
 export interface Title {
