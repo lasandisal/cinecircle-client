@@ -38,52 +38,52 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   };
 
   return (
-    <article className="bg-slate-900/40 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl p-5 space-y-4 transition-all duration-200 backdrop-blur-sm shadow-sm hover:shadow-md">
+    <article className="bg-slate-900/40 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4 transition-all duration-200 backdrop-blur-sm shadow-sm">
       {/* Header: User Info & Mutual Badge */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <img
             src={post.author.avatar}
             alt={post.author.name}
-            className="w-10 h-10 rounded-full object-cover border border-slate-700"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-700 shrink-0"
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white hover:text-indigo-400 cursor-pointer">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs sm:text-sm font-bold text-white hover:text-indigo-400 cursor-pointer truncate">
                 {post.author.name}
               </span>
-              <span className="text-xs text-slate-500">{post.author.handle}</span>
+              <span className="text-[11px] text-slate-500 truncate">{post.author.handle}</span>
             </div>
-            <span className="text-[11px] text-slate-500">{post.timestamp}</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 block">{post.timestamp}</span>
           </div>
         </div>
 
         {post.author.mutualCount && (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            {post.author.mutualCount} mutual titles
+          <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center gap-1 shrink-0">
+            <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+            <span>{post.author.mutualCount} mutuals</span>
           </span>
         )}
       </div>
 
       {/* Main Content: Film Card & Rating */}
-      <div className="flex gap-4 p-3 rounded-xl bg-slate-950/60 border border-slate-850">
+      <div className="flex gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-xl bg-slate-950/60 border border-slate-850">
         <Link to={`/title/${post.titleData.id}`} className="shrink-0 group">
           <img
             src={post.titleData.poster}
             alt={post.titleData.name}
-            className="w-20 h-28 object-cover rounded-lg shadow-md group-hover:scale-105 transition-transform duration-200"
+            className="w-16 h-24 sm:w-20 sm:h-28 object-cover rounded-lg shadow-md group-hover:scale-105 active:scale-95 transition-transform duration-200"
           />
         </Link>
 
-        <div className="space-y-1.5 flex-1 min-w-0">
+        <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <Link
               to={`/title/${post.titleData.id}`}
-              className="text-base font-bold text-white hover:text-indigo-400 transition-colors truncate"
+              className="text-sm sm:text-base font-bold text-white hover:text-indigo-400 transition-colors truncate"
             >
               {post.titleData.name}
-              <span className="text-xs text-slate-400 font-normal ml-1.5">
+              <span className="text-[11px] sm:text-xs text-slate-400 font-normal ml-1">
                 ({post.titleData.year})
               </span>
             </Link>
@@ -94,31 +94,31 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
             {[1, 2, 3, 4, 5].map((star) => (
               <Star
                 key={star}
-                className={`w-3.5 h-3.5 ${
+                className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${
                   star <= post.rating
                     ? 'text-amber-400 fill-amber-400'
                     : 'text-slate-700'
                 }`}
               />
             ))}
-            <span className="text-xs font-bold text-amber-400 ml-1">
+            <span className="text-[11px] sm:text-xs font-bold text-amber-400 ml-1">
               {post.rating}.0
             </span>
           </div>
 
-          <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed italic">
+          <p className="text-[11px] sm:text-xs text-slate-300 line-clamp-2 leading-relaxed italic">
             "{post.reviewText}"
           </p>
 
           {/* Streaming badges */}
-          <div className="flex items-center gap-2 pt-1 flex-wrap">
-            <span className="text-[10px] text-slate-500 flex items-center gap-1">
-              <Tv className="w-3 h-3 text-cyan-400" /> Watch On:
+          <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+            <span className="text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-0.5">
+              <Tv className="w-2.5 h-2.5 text-cyan-400" /> Watch:
             </span>
             {post.titleData.streamingServices.map((service) => (
               <span
                 key={service}
-                className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700"
+                className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700"
               >
                 {service}
               </span>
@@ -128,38 +128,38 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
       </div>
 
       {/* Social Micro-Interaction Bar */}
-      <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-xs text-slate-400">
+      <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px] sm:text-xs text-slate-400">
         <button
           onClick={toggleLike}
-          className={`flex items-center gap-1.5 transition-colors ${
+          className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all ${
             liked ? 'text-rose-500 font-semibold' : 'hover:text-rose-400'
           }`}
         >
-          <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
+          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${liked ? 'fill-rose-500' : ''}`} />
           <span>{likes}</span>
         </button>
 
-        <button className="flex items-center gap-1.5 hover:text-indigo-400 transition-colors">
-          <MessageSquare className="w-4 h-4" />
-          <span>{post.commentsCount} comments</span>
+        <button className="flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 hover:text-indigo-400 transition-all">
+          <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span>{post.commentsCount}</span>
         </button>
 
         <button
           onClick={() => setBookmarked(!bookmarked)}
-          className={`flex items-center gap-1.5 transition-colors ${
+          className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all ${
             bookmarked ? 'text-amber-400 font-semibold' : 'hover:text-amber-300'
           }`}
         >
-          <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-amber-400' : ''}`} />
-          <span>{bookmarked ? 'Watchlisted' : 'Save'}</span>
+          <Bookmark className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${bookmarked ? 'fill-amber-400' : ''}`} />
+          <span>{bookmarked ? 'Saved' : 'Save'}</span>
         </button>
 
         <Link
           to={`/group`}
-          className="flex items-center gap-1 hover:text-indigo-400 text-indigo-400/90 font-medium transition-colors"
+          className="flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 hover:text-indigo-400 text-indigo-400/90 font-medium transition-all"
         >
-          <Share2 className="w-3.5 h-3.5" />
-          <span>Start Circle</span>
+          <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <span>Circle</span>
         </Link>
       </div>
     </article>
