@@ -64,6 +64,8 @@ export interface Title {
       avatar?: string;
     };
     text: string;
+    rating?: number;
+    likesCount?: number;
     containsSpoilers?: boolean;
     createdAt: string;
   }[];

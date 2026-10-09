@@ -65,11 +65,20 @@ export const titleService = {
   /**
    * Add a discussion comment to a title
    */
-  async addComment(titleId: string, text: string, containsSpoilers = false) {
+  async addComment(titleId: string, text: string, rating?: number, containsSpoilers = false) {
     const res = await api.post(`/titles/${titleId}/comments`, {
       text,
+      rating,
       containsSpoilers,
     });
+    return res.data.data.comment;
+  },
+
+  /**
+   * Like a discussion comment
+   */
+  async likeComment(commentId: string) {
+    const res = await api.post(`/titles/comments/${commentId}/like`);
     return res.data.data.comment;
   },
 
