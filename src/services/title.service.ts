@@ -65,6 +65,14 @@ export const titleService = {
   },
 
   /**
+   * Fetch rich episodes for a specific season
+   */
+  async getSeasonEpisodes(idOrTmdbId: string | number, seasonNumber: number) {
+    const res = await api.get(`/titles/${idOrTmdbId}/seasons/${seasonNumber}`);
+    return res.data.data.season;
+  },
+
+  /**
    * Add a discussion comment or reply to a title (with optional rating or poll)
    */
   async addComment(

@@ -84,6 +84,14 @@ export interface Title {
       name: string;
       summary: string;
       runtimeMinutes: number;
+      stillUrl?: string;
+      airDate?: string;
+      voteAverage?: number;
+      featuredSong?: {
+        songName: string;
+        artist: string;
+        sceneRef?: string;
+      };
     }[];
   }[];
   soundtracks?: {

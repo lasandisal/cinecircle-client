@@ -21,6 +21,11 @@ import {
   BarChart2,
   Smile,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  Disc,
+  Volume2,
 } from 'lucide-react';
 import { titleService } from '../services/title.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
@@ -75,8 +80,40 @@ export const TitleDetailPage: React.FC = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
 
-  // Season selector for TV shows
+  // Season selector and expandable episode accordion state
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+  const [expandedEpisode, setExpandedEpisode] = useState<number | null>(null);
+  const [loadingSeasonEpisodes, setLoadingSeasonEpisodes] = useState<boolean>(false);
+  const [activePlayingSong, setActivePlayingSong] = useState<string | null>(null);
+
+  const handleSelectSeason = async (seasonNum: number) => {
+    setSelectedSeason(seasonNum);
+    setExpandedEpisode(null);
+
+    const activeSeason = title?.seasons?.find((s) => s.seasonNumber === seasonNum);
+    const hasGeneric =
+      !activeSeason ||
+      !activeSeason.episodes ||
+      activeSeason.episodes.length === 0 ||
+      activeSeason.episodes.some((e) => !e.stillUrl && e.name.match(/^Episode \d+$/i));
+
+    if (hasGeneric && (title?._id || id)) {
+      setLoadingSeasonEpisodes(true);
+      try {
+        const seasonData = await titleService.getSeasonEpisodes(title?._id || id!, seasonNum);
+        if (seasonData && title) {
+          setTitle({
+            ...title,
+            seasons: title.seasons?.map((s) => (s.seasonNumber === seasonNum ? seasonData : s)),
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load season episodes:', err);
+      } finally {
+        setLoadingSeasonEpisodes(false);
+      }
+    }
+  };
 
   // Comments state
   const [newComment, setNewComment] = useState('');
@@ -574,7 +611,7 @@ export const TitleDetailPage: React.FC = () => {
                     <button
                       key={season.seasonNumber}
                       type="button"
-                      onClick={() => setSelectedSeason(season.seasonNumber)}
+                      onClick={() => handleSelectSeason(season.seasonNumber)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         selectedSeason === season.seasonNumber
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
@@ -587,41 +624,237 @@ export const TitleDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Active Season Episodes */}
-              {activeSeasonData ? (
+              {/* Loading Season State */}
+              {loadingSeasonEpisodes && (
+                <div className="flex items-center justify-center py-8 gap-2 text-xs font-medium text-indigo-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading full episodes & soundtracks from TMDB...</span>
+                </div>
+              )}
+
+              {/* Active Season Episodes - Clickable Accordion */}
+              {!loadingSeasonEpisodes && activeSeasonData ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs text-slate-400 font-semibold px-1">
                     <span>Season {activeSeasonData.seasonNumber}</span>
-                    <span>{activeSeasonData.episodes.length} Episodes</span>
+                    <span>{activeSeasonData.episodes.length} Episodes • Click episode to expand summary</span>
                   </div>
 
                   <div className="space-y-2.5">
-                    {activeSeasonData.episodes.map((ep) => (
-                      <div
-                        key={ep.episodeNumber}
-                        className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-colors space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-white">
-                            {ep.episodeNumber}. {ep.name}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-500" />
-                            {ep.runtimeMinutes} min
-                          </span>
+                    {activeSeasonData.episodes.map((ep) => {
+                      const isExpanded = expandedEpisode === ep.episodeNumber;
+                      return (
+                        <div
+                          key={ep.episodeNumber}
+                          className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                            isExpanded
+                              ? 'bg-slate-950/90 border-indigo-500/50 shadow-lg shadow-indigo-950/20'
+                              : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700'
+                          }`}
+                        >
+                          {/* Clickable Header */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedEpisode(isExpanded ? null : ep.episodeNumber)
+                            }
+                            className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">
+                                {ep.episodeNumber}
+                              </span>
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-white block truncate">
+                                  {ep.name}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                  {ep.airDate && (
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-2.5 h-2.5 text-slate-500" />
+                                      {ep.airDate}
+                                    </span>
+                                  )}
+                                  {ep.voteAverage && ep.voteAverage > 0 ? (
+                                    <span className="flex items-center gap-0.5 text-amber-400 font-semibold">
+                                      <Star className="w-2.5 h-2.5 fill-amber-400" />
+                                      {ep.voteAverage}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-500" />
+                                {ep.runtimeMinutes} min
+                              </span>
+                              <div className="w-6 h-6 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+                                {isExpanded ? (
+                                  <ChevronUp className="w-3.5 h-3.5 text-indigo-400" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                )}
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Expanded Content Drawer */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 pt-1 border-t border-slate-800/60 space-y-3.5 animate-in fade-in duration-200">
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                {/* Episode Thumbnail Still */}
+                                {ep.stillUrl ? (
+                                  <div className="w-full sm:w-48 h-28 rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shrink-0 relative group">
+                                    <img
+                                      src={ep.stillUrl}
+                                      alt={ep.name}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-2">
+                                      <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider">
+                                        Episode Still
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-full sm:w-48 h-28 rounded-xl bg-slate-900/80 border border-slate-800/80 flex flex-col items-center justify-center text-slate-500 shrink-0 gap-1">
+                                    <Tv className="w-5 h-5 text-slate-600" />
+                                    <span className="text-[10px]">Episode {ep.episodeNumber}</span>
+                                  </div>
+                                )}
+
+                                {/* Episode Synopsis */}
+                                <div className="flex-1 space-y-2">
+                                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    Episode Synopsis
+                                  </h4>
+                                  <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                                    {ep.summary ||
+                                      'No extended synopsis recorded for this episode yet.'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Featured Song / Music in Episode */}
+                              {ep.featuredSong && (
+                                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                      <Music className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] font-bold text-white truncate">
+                                          {ep.featuredSong.songName}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 truncate">
+                                          • {ep.featuredSong.artist}
+                                        </span>
+                                      </div>
+                                      {ep.featuredSong.sceneRef && (
+                                        <p className="text-[10px] text-emerald-300/80 truncate">
+                                          Scene: {ep.featuredSong.sceneRef}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0 flex items-center gap-1">
+                                    <Volume2 className="w-2.5 h-2.5" /> Featured Song
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {ep.summary && (
-                          <p className="text-[11px] text-slate-400 leading-relaxed font-normal">
-                            {ep.summary}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-              ) : (
+              ) : !loadingSeasonEpisodes ? (
                 <p className="text-xs text-slate-500">Select a season to view episodes.</p>
-              )}
+              ) : null}
+            </div>
+          )}
+
+          {/* Dedicated Official Soundtracks & Featured Songs Section */}
+          {title.soundtracks && title.soundtracks.length > 0 && (
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+                  <Disc className="w-4 h-4 text-emerald-400 animate-spin-slow" />
+                  <span>Official Soundtrack & Iconic Featured Songs</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {title.soundtracks.length} track{title.soundtracks.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {title.soundtracks.map((track, idx) => {
+                  const isPlaying = activePlayingSong === track.songName;
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                        isPlaying
+                          ? 'bg-emerald-950/40 border-emerald-500/40 shadow-md shadow-emerald-950/30'
+                          : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                            isPlaying
+                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <Music className={`w-4 h-4 ${isPlaying ? 'animate-pulse' : ''}`} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">
+                            {track.songName}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">{track.artist}</p>
+                          {track.episodeRef && (
+                            <p className="text-[9px] text-indigo-400/90 truncate mt-0.5">
+                              {track.episodeRef}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActivePlayingSong(isPlaying ? null : track.songName)
+                        }
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border shrink-0 transition-colors flex items-center gap-1 cursor-pointer ${
+                          isPlaying
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow'
+                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {isPlaying ? (
+                          <>
+                            <Volume2 className="w-2.5 h-2.5 animate-pulse" />
+                            <span>Playing</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-2.5 h-2.5 fill-current" />
+                            <span>Listen</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
