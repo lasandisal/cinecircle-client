@@ -16,7 +16,9 @@ export interface GroupPollProps {
   }[];
   status: 'voting' | 'locked';
   winnerTitle?: string;
+  aiCompromisePitch?: string;
 }
+
 
 export const GroupSessionCard: React.FC<{ session: GroupPollProps }> = ({ session }) => {
   return (
@@ -96,6 +98,19 @@ export const GroupSessionCard: React.FC<{ session: GroupPollProps }> = ({ sessio
           ))}
         </div>
       </div>
+
+      {/* Gemini AI Mediator Callout */}
+      {session.aiCompromisePitch && (
+        <div className="p-3 rounded-xl bg-gradient-to-r from-violet-950/40 via-indigo-950/30 to-slate-950/40 border border-violet-500/30 space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-violet-300">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Gemini AI Compromise Verdict</span>
+          </div>
+          <p className="text-xs text-slate-300 italic leading-relaxed">
+            "{session.aiCompromisePitch}"
+          </p>
+        </div>
+      )}
 
       {/* Action Footer */}
       <div className="pt-2 flex items-center justify-between border-t border-slate-800/80">

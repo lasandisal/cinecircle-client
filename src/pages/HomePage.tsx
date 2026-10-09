@@ -116,7 +116,10 @@ const SAMPLE_GROUP_POLL: GroupPollProps = {
     },
   ],
   status: 'voting',
+  aiCompromisePitch:
+    'Marcus wanted mind-bending space exploration while Jordan needed emotional depth. "Interstellar" is the definitive compromise winner — black hole physics for Marcus, heartfelt father-daughter tears for Jordan. Settle in, the debate is officially resolved!',
 };
+
 
 export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'for-you' | 'following' | 'trending'>('for-you');
