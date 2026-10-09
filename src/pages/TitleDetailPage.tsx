@@ -33,6 +33,7 @@ import {
   X,
 } from 'lucide-react';
 import { titleService } from '../services/title.service';
+import { watchlistService } from '../services/watchlist.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useAppSelector } from '../hooks/useAppRedux';
@@ -84,12 +85,32 @@ export const TitleDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Interactive user actions (like / watched / star rating)
+  // Interactive user actions (like / watched / star rating / watchlist)
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isWatched, setIsWatched] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(142);
   const [userRating, setUserRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
+  const [watchlistActionLoading, setWatchlistActionLoading] = useState(false);
+
+  // Sync real watchlist and watched status from MongoDB on title load
+  useEffect(() => {
+    const fetchWatchlistStatus = async () => {
+      if (!isAuthenticated || !title?._id) return;
+      try {
+        const status = await watchlistService.getTitleStatus(title._id);
+        setIsInWatchlist(status.inWatchlist);
+        setIsWatched(status.watched);
+        if (status.starRating) {
+          setUserRating(status.starRating);
+        }
+      } catch (err) {
+        console.error('Failed to load title watchlist status:', err);
+      }
+    };
+    fetchWatchlistStatus();
+  }, [isAuthenticated, title?._id]);
 
   const requireAuth = (): boolean => {
     if (!isAuthenticated) {
@@ -105,14 +126,50 @@ export const TitleDetailPage: React.FC = () => {
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  const toggleWatchedTitle = () => {
+  const toggleWatchedTitle = async () => {
     if (!requireAuth()) return;
-    setIsWatched((prev) => !prev);
+    if (!title?._id) return;
+    try {
+      const nextWatched = !isWatched;
+      setIsWatched(nextWatched);
+      await watchlistService.markAsWatched(title._id, nextWatched);
+      setIsInWatchlist(true);
+    } catch (err) {
+      console.error('Failed to update watched status:', err);
+    }
   };
 
-  const handleRateTitle = (star: number) => {
+  const handleRateTitle = async (star: number) => {
     if (!requireAuth()) return;
-    setUserRating(star);
+    if (!title?._id) return;
+    try {
+      setUserRating(star);
+      setIsWatched(true);
+      setIsInWatchlist(true);
+      await watchlistService.rateTitle(title._id, star);
+    } catch (err) {
+      console.error('Failed to rate title:', err);
+    }
+  };
+
+  const handleToggleWatchlist = async () => {
+    if (!requireAuth()) return;
+    if (!title?._id) return;
+    try {
+      setWatchlistActionLoading(true);
+      if (isInWatchlist) {
+        await watchlistService.removeFromWatchlist(title._id);
+        setIsInWatchlist(false);
+        setIsWatched(false);
+      } else {
+        await watchlistService.addToWatchlist(title._id);
+        setIsInWatchlist(true);
+      }
+    } catch (err) {
+      console.error('Failed to update watchlist:', err);
+    } finally {
+      setWatchlistActionLoading(false);
+    }
   };
 
   // Season selector and expandable episode accordion state
@@ -707,13 +764,25 @@ export const TitleDetailPage: React.FC = () => {
                 <Users className="w-3.5 h-3.5" />
                 <span>Add to Group Circle</span>
               </Link>
-              <Link
-                to="/watchlist"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white font-semibold text-xs transition-all"
+              <button
+                type="button"
+                onClick={handleToggleWatchlist}
+                disabled={watchlistActionLoading}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-xs transition-all cursor-pointer ${
+                  isInWatchlist
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-white'
+                }`}
               >
-                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
-                <span>Save to Watchlist</span>
-              </Link>
+                {watchlistActionLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : isInWatchlist ? (
+                  <Check className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>{isInWatchlist ? 'Saved in Watchlist' : 'Save to Watchlist'}</span>
+              </button>
             </div>
           </div>
         </div>

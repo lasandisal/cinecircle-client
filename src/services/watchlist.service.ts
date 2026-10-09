@@ -50,4 +50,16 @@ export const watchlistService = {
     const res = await api.patch(`/watchlist/${idOrTitleId}/rate`, { rating });
     return res.data.data.item;
   },
+
+  /**
+   * Get title's watchlist, watched, and rating status for current user
+   */
+  async getTitleStatus(titleId: string): Promise<{ inWatchlist: boolean; watched: boolean; starRating: number }> {
+    try {
+      const res = await api.get(`/watchlist/status/${titleId}`);
+      return res.data.data;
+    } catch {
+      return { inWatchlist: false, watched: false, starRating: 0 };
+    }
+  },
 };
