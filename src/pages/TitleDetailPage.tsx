@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Star,
   Clock,
@@ -73,6 +73,9 @@ export const TitleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type') as 'film' | 'tv' | null;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, user: currentUser } = useAppSelector((state) => state.auth);
 
   const [title, setTitle] = useState<Title | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,6 +87,30 @@ export const TitleDetailPage: React.FC = () => {
   const [likeCount, setLikeCount] = useState(142);
   const [userRating, setUserRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
+
+  const requireAuth = (): boolean => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location } });
+      return false;
+    }
+    return true;
+  };
+
+  const toggleLikeTitle = () => {
+    if (!requireAuth()) return;
+    setIsLiked((prev) => !prev);
+    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+  };
+
+  const toggleWatchedTitle = () => {
+    if (!requireAuth()) return;
+    setIsWatched((prev) => !prev);
+  };
+
+  const handleRateTitle = (star: number) => {
+    if (!requireAuth()) return;
+    setUserRating(star);
+  };
 
   // Season selector and expandable episode accordion state
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -244,8 +271,6 @@ export const TitleDetailPage: React.FC = () => {
 
   // Reaction picker hover state (commentId -> boolean)
   const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
-
-  const { isAuthenticated, user: currentUser } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     if (!id) return;
@@ -472,11 +497,6 @@ export const TitleDetailPage: React.FC = () => {
     }
   };
 
-  const toggleLikeTitle = () => {
-    setIsLiked(!isLiked);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
-  };
-
   const toggleSpoiler = (commentId: string) => {
     setRevealedSpoilers((prev) => ({
       ...prev,
@@ -617,7 +637,7 @@ export const TitleDetailPage: React.FC = () => {
               {/* Watched Toggle */}
               <button
                 type="button"
-                onClick={() => setIsWatched(!isWatched)}
+                onClick={toggleWatchedTitle}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   isWatched
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
@@ -655,7 +675,7 @@ export const TitleDetailPage: React.FC = () => {
                     type="button"
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setUserRating(star)}
+                    onClick={() => handleRateTitle(star)}
                     className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
                   >
                     <Star
@@ -1066,7 +1086,10 @@ export const TitleDetailPage: React.FC = () => {
                 {/* Suggest / Add Song Button */}
                 <button
                   type="button"
-                  onClick={() => setShowAddSongModal(true)}
+                  onClick={() => {
+                    if (!requireAuth()) return;
+                    setShowAddSongModal(true);
+                  }}
                   className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1585,11 +1608,11 @@ export const TitleDetailPage: React.FC = () => {
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center space-y-1.5">
                 <p className="text-xs font-bold text-slate-200">Join the discussion</p>
                 <p className="text-[11px] text-slate-400">
-                  <Link to="/login" className="text-indigo-400 hover:underline font-semibold">
+                  <Link to="/login" state={{ from: location }} className="text-indigo-400 hover:underline font-semibold">
                     Sign in
                   </Link>{' '}
                   or{' '}
-                  <Link to="/register" className="text-indigo-400 hover:underline font-semibold">
+                  <Link to="/register" state={{ from: location }} className="text-indigo-400 hover:underline font-semibold">
                     create a free account
                   </Link>{' '}
                   to react, reply, vote on polls, and post your review.
