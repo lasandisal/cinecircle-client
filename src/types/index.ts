@@ -52,6 +52,21 @@ export interface UserProfileData {
       voteAverage?: number;
     };
   }>;
+  savedWatchlist?: Array<{
+    _id: string;
+    watched: boolean;
+    addedAt: string;
+    title: {
+      _id: string;
+      name: string;
+      posterUrl: string;
+      releaseYear?: number;
+      type: string;
+      voteAverage?: number;
+      genres?: string[];
+      overview?: string;
+    };
+  }>;
   recentReviews: Array<{
     _id: string;
     text: string;

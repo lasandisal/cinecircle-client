@@ -4,6 +4,7 @@ import {
   User,
   Users,
   Film,
+  Bookmark,
   MessageSquare,
   Sparkles,
   Edit3,
@@ -38,7 +39,7 @@ export const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'watched' | 'circles' | 'reviews' | 'taste'>('watched');
+  const [activeTab, setActiveTab] = useState<'watched' | 'watchlist' | 'circles' | 'reviews' | 'taste'>('watched');
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Modals
@@ -417,12 +418,15 @@ export const ProfilePage: React.FC = () => {
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connected</div>
               </button>
 
-              <div>
-                <div className="text-base sm:text-xl font-black text-rose-400 font-['Outfit']">
+              <button
+                onClick={() => setIsFindPeopleOpen(true)}
+                className="hover:scale-105 transition-transform cursor-pointer group"
+              >
+                <div className="text-base sm:text-xl font-black text-rose-400 group-hover:text-rose-300 font-['Outfit']">
                   {profile.stats.followersCount}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Followers</div>
-              </div>
+              </button>
 
               <button
                 onClick={() => setActiveTab('watched')}
@@ -434,12 +438,15 @@ export const ProfilePage: React.FC = () => {
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Watched</div>
               </button>
 
-              <div>
-                <div className="text-base sm:text-xl font-black text-amber-400 font-['Outfit']">
+              <button
+                onClick={() => setActiveTab('watchlist')}
+                className="hover:scale-105 transition-transform cursor-pointer group"
+              >
+                <div className="text-base sm:text-xl font-black text-amber-400 group-hover:text-amber-300 font-['Outfit']">
                   {profile.stats.watchlistCount}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Watchlist</div>
-              </div>
+              </button>
 
               <button
                 onClick={() => setActiveTab('reviews')}
@@ -488,6 +495,18 @@ export const ProfilePage: React.FC = () => {
           >
             <Film className="w-4 h-4" />
             <span>Watched & Rated ({profile.stats.watchedCount})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('watchlist')}
+            className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'watchlist'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Bookmark className="w-4 h-4" />
+            <span>Saved Watchlist ({profile.stats.watchlistCount})</span>
           </button>
 
           <button
@@ -605,7 +624,82 @@ export const ProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 2: ACTIVE WATCH CIRCLES */}
+        {/* TAB 2: SAVED WATCHLIST BACKLOG */}
+        {activeTab === 'watchlist' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white font-['Outfit']">Saved Watchlist Backlog</h2>
+                <p className="text-xs text-slate-400">Titles queued to watch next with streaming passes</p>
+              </div>
+              <Link
+                to="/watchlist"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold transition-colors"
+              >
+                <span>Full Watchlist Manager</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {profile.savedWatchlist && profile.savedWatchlist.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                {profile.savedWatchlist.map((item) => (
+                  <Link
+                    key={item._id}
+                    to={`/title/${item.title._id}${item.title.type ? `?type=${item.title.type}` : ''}`}
+                    className="group relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 hover:border-amber-500/50 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-amber-500/10 flex flex-col"
+                  >
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-slate-950 relative">
+                      <img
+                        src={item.title.posterUrl}
+                        alt={item.title.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      {/* Rating Badge */}
+                      {item.title.voteAverage ? (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-slate-950/80 backdrop-blur-md border border-amber-500/40 text-amber-400 text-xs font-bold flex items-center gap-1 shadow-md">
+                          <Star className="w-3 h-3 fill-amber-400" />
+                          <span>{item.title.voteAverage.toFixed(1)}</span>
+                        </div>
+                      ) : null}
+                      {/* Format Badge */}
+                      <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-950/85 backdrop-blur-sm text-slate-300 border border-slate-800">
+                        {item.title.type === 'tv' ? 'Series' : 'Movie'}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 space-y-1">
+                      <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-400 transition-colors">
+                        {item.title.name}
+                      </h4>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{item.title.releaseYear || 'Queued'}</span>
+                        <span className="text-amber-400 font-medium">To Watch</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 rounded-3xl bg-slate-900/40 border border-slate-800/60 text-center space-y-3">
+                <Bookmark className="w-8 h-8 text-slate-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-300">Watchlist is currently empty</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Save titles by tapping the bookmark icon on any movie or TV series to add it to your watchlist backlog.
+                </p>
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-colors"
+                >
+                  Discover Titles to Save
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: ACTIVE WATCH CIRCLES */}
         {activeTab === 'circles' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
