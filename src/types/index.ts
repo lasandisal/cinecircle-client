@@ -55,6 +55,7 @@ export interface Title {
   _id: string;
   tmdbId: number;
   name: string;
+  originalName?: string;
   type: 'tv' | 'film';
   genres: string[];
   synopsis: string;
