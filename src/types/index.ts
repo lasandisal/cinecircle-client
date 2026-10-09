@@ -21,12 +21,51 @@ export interface Title {
   synopsis: string;
   runtimeMinutes: number;
   posterUrl: string;
+  backdropUrl?: string;
+  releaseYear?: number;
+  voteAverage?: number;
   moodTags: string[];
   cast: {
     actorName: string;
     characterName: string;
     photoUrl?: string;
     bio?: string;
+  }[];
+  watchProviders?: {
+    _id?: string;
+    service: string;
+    region: string;
+    type: 'subscription' | 'rental' | 'purchase';
+  }[];
+  seasons?: {
+    _id?: string;
+    seasonNumber: number;
+    episodes: {
+      episodeNumber: number;
+      name: string;
+      summary: string;
+      runtimeMinutes: number;
+    }[];
+  }[];
+  soundtracks?: {
+    _id?: string;
+    songName: string;
+    artist: string;
+    episodeRef?: string;
+    popularityRank: number;
+  }[];
+  comments?: {
+    _id: string;
+    user: {
+      _id: string;
+      name: string;
+      email: string;
+      role: string;
+      avatar?: string;
+    };
+    text: string;
+    containsSpoilers?: boolean;
+    createdAt: string;
   }[];
 }
 
