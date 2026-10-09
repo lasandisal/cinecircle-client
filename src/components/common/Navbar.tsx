@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -11,15 +11,30 @@ import {
   User as UserIcon,
   ShieldCheck,
   ChevronDown,
+  Loader2,
+  Film,
+  Star,
 } from 'lucide-react';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux';
 import { logout } from '../../store/slices/authSlice';
+import { titleService } from '../../services/title.service';
+import type { Title } from '../../types';
+import { StreamingBadge } from './StreamingBadge';
 
 export const Navbar: React.FC = () => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Title[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -31,10 +46,69 @@ export const Navbar: React.FC = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
       }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Keyboard shortcut Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setMobileSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Debounced search logic
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || query.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await titleService.search(query.trim());
+      setSearchResults(results);
+    } catch (err) {
+      console.error('Search error:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim().length >= 2) {
+        handleSearch(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, handleSearch]);
+
+  const handleSelectTitle = (title: Title) => {
+    setSearchOpen(false);
+    setMobileSearchOpen(false);
+    setSearchQuery('');
+    navigate(`/title/${title._id || title.tmdbId}`);
+  };
 
   const handleSignOut = () => {
     setProfileDropdownOpen(false);
@@ -60,17 +134,130 @@ export const Navbar: React.FC = () => {
             </span>
           </Link>
 
-          {/* Desktop Search Bar */}
-          <div className="relative hidden md:block w-56 lg:w-72">
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Desktop Search Bar with Live Results Dropdown */}
+          <div className="relative hidden md:block w-64 lg:w-80" ref={searchContainerRef}>
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Search films, friends..."
-              className="w-full pl-8 pr-10 py-1.5 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Search movies, TV shows, genres..."
+              className="w-full pl-8 pr-16 py-1.5 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors"
             />
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-500 bg-slate-950 px-1 py-0.5 rounded border border-slate-800">
+
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+                className="absolute right-9 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-500 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 pointer-events-none">
               ⌘K
             </kbd>
+
+            {/* Desktop Search Results Dropdown */}
+            {searchOpen && searchQuery.trim().length >= 2 && (
+              <div className="absolute left-0 top-full mt-2 w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden z-50 animate-in fade-in duration-150">
+                <div className="p-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    {isSearching
+                      ? 'Searching catalogue...'
+                      : `${searchResults.length} title${searchResults.length === 1 ? '' : 's'} found`}
+                  </span>
+                  {isSearching && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/50">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((title) => (
+                      <button
+                        key={title._id || title.tmdbId}
+                        onClick={() => handleSelectTitle(title)}
+                        className="w-full p-2.5 flex items-start gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                      >
+                        {/* Poster */}
+                        <div className="w-10 h-14 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
+                          {title.posterUrl ? (
+                            <img
+                              src={title.posterUrl}
+                              alt={title.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-600">
+                              <Film className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                              {title.name}
+                            </span>
+                            <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
+                              {title.type === 'film' ? 'Film' : 'TV'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                            {title.releaseYear && <span>{title.releaseYear}</span>}
+                            {title.runtimeMinutes > 0 && <span>• {title.runtimeMinutes}m</span>}
+                            {title.voteAverage ? (
+                              <span className="flex items-center gap-0.5 text-amber-400">
+                                <Star className="w-2.5 h-2.5 fill-amber-400" />
+                                {title.voteAverage}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {/* Genres */}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {title.genres.slice(0, 2).map((g) => (
+                              <span
+                                key={g}
+                                className="text-[9px] px-1.5 py-0.2 bg-slate-800/80 text-slate-300 rounded"
+                              >
+                                {g}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Streaming Providers */}
+                          {title.watchProviders && title.watchProviders.length > 0 && (
+                            <div className="flex items-center gap-1 mt-1.5">
+                              {title.watchProviders.slice(0, 3).map((wp, idx) => (
+                                <StreamingBadge key={idx} service={wp.service} size="sm" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  ) : !isSearching ? (
+                    <div className="p-6 text-center space-y-1">
+                      <p className="text-xs text-slate-300 font-medium">No titles found</p>
+                      <p className="text-[11px] text-slate-500">
+                        Try searching for "Dune", "Bear", "Severance", "Spider", or "Stranger"
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -183,7 +370,6 @@ export const Navbar: React.FC = () => {
               {/* Profile Dropdown Menu */}
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 shadow-2xl shadow-black/70 z-50 animate-in fade-in duration-150 space-y-1">
-                  {/* User snippet */}
                   <div className="px-3 py-2 border-b border-slate-800">
                     <p className="text-xs font-bold text-white truncate">{user?.name}</p>
                     <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
@@ -254,7 +440,7 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Expandable Mobile Search Bar */}
+      {/* Expandable Mobile Search Bar with Live Results */}
       {mobileSearchOpen && (
         <div className="md:hidden px-3 pb-3 pt-1 border-t border-slate-850 bg-slate-950/95 animate-in fade-in duration-200">
           <div className="relative">
@@ -262,10 +448,66 @@ export const Navbar: React.FC = () => {
             <input
               type="text"
               autoFocus
-              placeholder="Search films, shows, or friends..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search films, shows, or genres..."
+              className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* Mobile Search Results */}
+          {searchQuery.trim().length >= 2 && (
+            <div className="mt-2 bg-slate-900 border border-slate-800 rounded-2xl max-h-72 overflow-y-auto divide-y divide-slate-800/50">
+              {isSearching ? (
+                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                  <span>Searching...</span>
+                </div>
+              ) : searchResults.length > 0 ? (
+                searchResults.map((title) => (
+                  <button
+                    key={title._id || title.tmdbId}
+                    onClick={() => handleSelectTitle(title)}
+                    className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                  >
+                    <div className="w-9 h-12 rounded bg-slate-950 overflow-hidden shrink-0">
+                      {title.posterUrl ? (
+                        <img
+                          src={title.posterUrl}
+                          alt={title.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-600">
+                          <Film className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-white truncate">{title.name}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {title.releaseYear} • {title.type === 'film' ? 'Film' : 'TV'}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-slate-400">No titles found</div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </header>
