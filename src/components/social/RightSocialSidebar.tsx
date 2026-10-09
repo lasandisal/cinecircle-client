@@ -4,45 +4,28 @@ import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 import type { Title } from '../../types';
 
-const TASTE_MATCHES = [
-  {
-    name: 'Maya Chen',
-    handle: '@mayacine',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
-    matchScore: 94,
-    mutualCount: 16,
-  },
-  {
-    name: 'Julian Ross',
-    handle: '@julianr',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces',
-    matchScore: 89,
-    mutualCount: 11,
-  },
-  {
-    name: 'Chloe Bennett',
-    handle: '@chloewatches',
-    avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop&crop=faces',
-    matchScore: 86,
-    mutualCount: 9,
-  },
-];
+import { socialService, type UserSuggestion } from '../../services/social.service';
 
 export const RightSocialSidebar: React.FC = () => {
   const [following, setFollowing] = useState<Record<string, boolean>>({});
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [trendingTitles, setTrendingTitles] = useState<Title[]>([]);
+  const [tasteMatches, setTasteMatches] = useState<UserSuggestion[]>([]);
 
   useEffect(() => {
-    const fetchTrending = async () => {
+    const fetchSidebarData = async () => {
       try {
-        const titles = await titleService.getTrending();
+        const [titles, users] = await Promise.all([
+          titleService.getTrending(),
+          socialService.getUserSuggestions(),
+        ]);
         setTrendingTitles(titles.slice(0, 5));
+        setTasteMatches(users.slice(0, 4));
       } catch (err) {
-        console.error('Failed to load trending titles:', err);
+        console.error('Failed to load sidebar data:', err);
       }
     };
-    fetchTrending();
+    fetchSidebarData();
   }, []);
 
   const toggleFollow = (handle: string) => {
@@ -94,7 +77,7 @@ export const RightSocialSidebar: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          {TASTE_MATCHES.map((user) => (
+          {tasteMatches.map((user) => (
             <div key={user.handle} className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <img

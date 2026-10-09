@@ -1,62 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Users, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface CircleStory {
-  id: string;
-  name: string;
-  hostName: string;
-  hostAvatar: string;
-  participantsCount: number;
-  genre: string;
-  code: string;
-  isLive: boolean;
-}
-
-const SAMPLE_CIRCLES: CircleStory[] = [
-  {
-    id: '1',
-    name: 'Sci-Fi Friday',
-    hostName: 'Marcus V.',
-    hostAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-    participantsCount: 4,
-    genre: 'Sci-Fi & Space',
-    code: 'SCI890',
-    isLive: true,
-  },
-  {
-    id: '2',
-    name: 'Comfort Rewatch',
-    hostName: 'Sarah K.',
-    hostAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces',
-    participantsCount: 3,
-    genre: 'Comedy / Chill',
-    code: 'COM412',
-    isLive: true,
-  },
-  {
-    id: '3',
-    name: 'Late Thriller',
-    hostName: 'David R.',
-    hostAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-    participantsCount: 5,
-    genre: 'Psychological',
-    code: 'THR771',
-    isLive: true,
-  },
-  {
-    id: '4',
-    name: 'Cyberpunk',
-    hostName: 'Elena P.',
-    hostAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop&crop=faces',
-    participantsCount: 2,
-    genre: 'Animation',
-    code: 'ANI204',
-    isLive: false,
-  },
-];
+import { socialService, type ActiveCircleItem } from '../../services/social.service';
 
 export const ActiveCirclesBar: React.FC = () => {
+  const [circles, setCircles] = useState<ActiveCircleItem[]>([]);
+
+  useEffect(() => {
+    const fetchCircles = async () => {
+      try {
+        const { display } = await socialService.getActiveSessions();
+        setCircles(display);
+      } catch (err) {
+        console.error('Failed to load active circles:', err);
+      }
+    };
+    fetchCircles();
+  }, []);
+
   return (
     <div className="w-full bg-slate-900/40 border border-slate-800/80 rounded-2xl p-3 sm:p-4 space-y-2.5 sm:space-y-3 backdrop-blur-sm">
       <div className="flex items-center justify-between">
@@ -89,11 +50,11 @@ export const ActiveCirclesBar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Live Circles */}
-        {SAMPLE_CIRCLES.map((circle) => (
+        {/* Live Real Circles from Database */}
+        {circles.map((circle) => (
           <Link
             key={circle.id}
-            to="/group"
+            to={`/group?code=${circle.joinCode}`}
             className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none max-w-[64px] sm:max-w-[72px]"
           >
             <div className="relative">
