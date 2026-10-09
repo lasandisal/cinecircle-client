@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   Star,
@@ -24,8 +24,10 @@ import {
   ChevronDown,
   ChevronUp,
   Play,
+  Pause,
   Disc,
   Volume2,
+  ExternalLink,
 } from 'lucide-react';
 import { titleService } from '../services/title.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
@@ -86,6 +88,41 @@ export const TitleDetailPage: React.FC = () => {
   const [loadingSeasonEpisodes, setLoadingSeasonEpisodes] = useState<boolean>(false);
   const [activePlayingSong, setActivePlayingSong] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleTogglePlaySong = (songName: string, previewUrl?: string) => {
+    if (activePlayingSong === songName) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      setActivePlayingSong(null);
+    } else {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      if (previewUrl) {
+        const audio = new Audio(previewUrl);
+        audio.volume = 0.7;
+        audio.onended = () => setActivePlayingSong(null);
+        audio.onerror = () => {
+          console.warn('Audio preview playback failed');
+          setActivePlayingSong(null);
+        };
+        audio.play().catch(() => setActivePlayingSong(null));
+        audioPlayerRef.current = audio;
+      }
+      setActivePlayingSong(songName);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+    };
+  }, [id]);
 
   const handleSelectSeason = async (seasonNum: number) => {
     setSelectedSeason(seasonNum);
@@ -843,78 +880,152 @@ export const TitleDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Dedicated Official Soundtracks & Featured Songs Section */}
+          {/* Dedicated Official Soundtrack & Iconic Featured Songs Section */}
           {uniqueSoundtracks.length > 0 && (
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
-                  <Disc className="w-4 h-4 text-emerald-400 animate-spin-slow" />
-                  <span>Official Soundtrack & Iconic Featured Songs</span>
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 sm:p-6 backdrop-blur-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Disc className={`w-4 h-4 ${activePlayingSong ? 'animate-spin' : ''}`} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                      Official Soundtrack & Iconic Featured Songs
+                      <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        30s Audio Previews
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Iconic tracks played in pivotal scenes throughout {title.name}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[11px] text-slate-400 font-medium">
+                <span className="text-[11px] text-slate-500 font-mono self-start sm:self-auto">
                   {uniqueSoundtracks.length} track{uniqueSoundtracks.length === 1 ? '' : 's'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Modern User-Friendly Tracklist */}
+              <div className="space-y-2">
                 {uniqueSoundtracks.map((track, idx) => {
                   const isPlaying = activePlayingSong === track.songName;
                   return (
                     <div
                       key={idx}
-                      className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                      className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
                         isPlaying
-                          ? 'bg-emerald-950/40 border-emerald-500/40 shadow-md shadow-emerald-950/30'
-                          : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700'
+                          ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                          : 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700/90 hover:bg-slate-950/90'
                       }`}
                     >
+                      {/* Left: Track # + Album Art + Song Name & Artist */}
                       <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                            isPlaying
-                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                              : 'bg-slate-900 border-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Music className={`w-4 h-4 ${isPlaying ? 'animate-pulse' : ''}`} />
+                        {/* Index Number */}
+                        <span className="text-xs font-mono font-bold text-slate-500 w-5 text-center shrink-0">
+                          {idx + 1}
+                        </span>
+
+                        {/* Album Art or Vinyl Icon */}
+                        <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-slate-900 border border-slate-800 shrink-0 group/cover">
+                          {track.albumArtUrl ? (
+                            <img
+                              src={track.albumArtUrl}
+                              alt={track.songName}
+                              className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-500">
+                              <Music className="w-5 h-5" />
+                            </div>
+                          )}
+                          {/* Overlay Play/Pause Icon */}
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                            className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity cursor-pointer ${
+                              isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                          >
+                            {isPlaying ? (
+                              <Pause className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                            ) : (
+                              <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                            )}
+                          </button>
                         </div>
 
+                        {/* Track Details */}
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-white truncate">
-                            {track.songName}
-                          </p>
-                          <p className="text-[10px] text-slate-400 truncate">{track.artist}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
+                              {track.songName}
+                            </p>
+                            {isPlaying && (
+                              <div className="flex items-center gap-0.5">
+                                <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce"></span>
+                                <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">{track.artist}</p>
                           {track.episodeRef && (
-                            <p className="text-[9px] text-indigo-400/90 truncate mt-0.5">
+                            <p className="text-[10px] text-emerald-400/90 font-medium truncate mt-0.5 sm:hidden">
                               {track.episodeRef}
                             </p>
                           )}
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActivePlayingSong(isPlaying ? null : track.songName)
-                        }
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border shrink-0 transition-colors flex items-center gap-1 cursor-pointer ${
-                          isPlaying
-                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow'
-                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white hover:border-slate-700'
-                        }`}
-                      >
-                        {isPlaying ? (
-                          <>
-                            <Volume2 className="w-2.5 h-2.5 animate-pulse" />
-                            <span>Playing</span>
-                          </>
+                      {/* Middle: Scene / Episode Context Tag (Desktop) */}
+                      {track.episodeRef && (
+                        <div className="hidden sm:block max-w-xs text-right">
+                          <span className="inline-block text-[10px] text-slate-300 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800 truncate">
+                            {track.episodeRef}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Right: Audio Action Controls */}
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        {track.previewUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              isPlaying
+                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
+                                : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            {isPlaying ? (
+                              <>
+                                <Pause className="w-3.5 h-3.5 fill-current" />
+                                <span>Pause</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>30s Sample</span>
+                              </>
+                            )}
+                          </button>
                         ) : (
-                          <>
-                            <Play className="w-2.5 h-2.5 fill-current" />
-                            <span>Listen</span>
-                          </>
+                          <span className="text-[10px] text-slate-500 italic">No audio preview</span>
                         )}
-                      </button>
+
+                        {track.spotifyUrl && (
+                          <a
+                            href={track.spotifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open full track in Apple Music / iTunes"
+                            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all text-xs"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

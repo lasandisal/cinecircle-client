@@ -100,6 +100,9 @@ export interface Title {
     artist: string;
     episodeRef?: string;
     popularityRank: number;
+    previewUrl?: string;
+    albumArtUrl?: string;
+    spotifyUrl?: string;
   }[];
   comments?: TitleComment[];
 }
