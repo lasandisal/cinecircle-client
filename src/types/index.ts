@@ -9,7 +9,102 @@ export interface User {
   fatigueCount: number;
   avatar?: string;
   handle?: string;
+  bio?: string;
   tasteProfile?: string;
+}
+
+export interface UserStats {
+  watchlistCount: number;
+  watchedCount: number;
+  followingCount: number;
+  followersCount: number;
+  circlesCount: number;
+  reviewsCount: number;
+}
+
+export interface UserProfileData {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  handle: string;
+  avatar: string;
+  bio: string;
+  subscribedServices: string[];
+  stats: UserStats;
+  tasteProfile?: {
+    favoriteGenres: string[];
+    exclusions: string[];
+    favoriteTitles?: string[];
+  };
+  recentWatched: Array<{
+    _id: string;
+    watched: boolean;
+    starRating?: number;
+    watchedAt?: string;
+    addedAt: string;
+    title: {
+      _id: string;
+      name: string;
+      posterUrl: string;
+      releaseYear?: number;
+      type: string;
+      voteAverage?: number;
+    };
+  }>;
+  recentReviews: Array<{
+    _id: string;
+    text: string;
+    rating?: number;
+    createdAt: string;
+    likesCount?: number;
+    title: {
+      _id: string;
+      name: string;
+      posterUrl: string;
+      releaseYear?: number;
+    };
+  }>;
+  userCircles: Array<{
+    _id: string;
+    name: string;
+    joinCode: string;
+    status: string;
+    host: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
+    shortlist: Array<{
+      _id: string;
+      name: string;
+      posterUrl: string;
+    }>;
+    constraints?: {
+      maxRuntime?: number;
+      moodFilter?: string;
+    };
+    participants: string[];
+  }>;
+  isFollowing?: boolean;
+  isSelf: boolean;
+}
+
+export interface CommunityPerson {
+  id: string;
+  name: string;
+  email: string;
+  handle: string;
+  avatar: string;
+  bio: string;
+  role: string;
+  isFollowing: boolean;
+  stats: {
+    watchedCount: number;
+    circlesCount: number;
+    followersCount: number;
+  };
+  matchScore: number;
 }
 
 export type ReactionEmoji = 'like' | 'love' | 'fire' | 'mindblown' | 'popcorn' | 'sad';

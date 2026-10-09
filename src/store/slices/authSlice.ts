@@ -89,6 +89,11 @@ export const authSlice = createSlice({
       state.error = null;
       localStorage.removeItem('cinecircle_token');
     },
+    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -151,5 +156,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, logout, clearError } = authSlice.actions;
+export const { setCredentials, logout, updateUser, clearError } = authSlice.actions;
 export default authSlice.reducer;

@@ -5,6 +5,7 @@ import { titleService } from '../../services/title.service';
 import type { Title } from '../../types';
 
 import { socialService, type UserSuggestion } from '../../services/social.service';
+import { userService } from '../../services/user.service';
 
 export const RightSocialSidebar: React.FC = () => {
   const [following, setFollowing] = useState<Record<string, boolean>>({});
@@ -28,8 +29,13 @@ export const RightSocialSidebar: React.FC = () => {
     fetchSidebarData();
   }, []);
 
-  const toggleFollow = (handle: string) => {
-    setFollowing((prev) => ({ ...prev, [handle]: !prev[handle] }));
+  const toggleFollow = async (userId: string, handle: string) => {
+    try {
+      const res = await userService.toggleFollow(userId);
+      setFollowing((prev) => ({ ...prev, [handle]: res.following }));
+    } catch {
+      setFollowing((prev) => ({ ...prev, [handle]: !prev[handle] }));
+    }
   };
 
   return (
@@ -71,23 +77,25 @@ export const RightSocialSidebar: React.FC = () => {
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
             Similar Taste Profiles
           </h4>
-          <span className="text-[10px] text-indigo-400 font-semibold cursor-pointer hover:underline">
-            View All
-          </span>
+          <Link to="/profile" className="text-[10px] text-indigo-400 font-semibold hover:underline">
+            View Profile
+          </Link>
         </div>
 
         <div className="space-y-3">
           {tasteMatches.map((user) => (
             <div key={user.handle} className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
+              <Link to={`/profile/${user.id}`} className="flex items-center gap-2.5 min-w-0 group">
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-800"
+                  className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-800 group-hover:ring-indigo-500 transition-all"
                 />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                    <p className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors truncate">
+                      {user.name}
+                    </p>
                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">
                       {user.matchScore}%
                     </span>
@@ -96,10 +104,10 @@ export const RightSocialSidebar: React.FC = () => {
                     {user.mutualCount} mutual films
                   </p>
                 </div>
-              </div>
+              </Link>
 
               <button
-                onClick={() => toggleFollow(user.handle)}
+                onClick={() => toggleFollow(user.id, user.handle)}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
                   following[user.handle]
                     ? 'bg-slate-800 text-slate-300 border border-slate-700'
