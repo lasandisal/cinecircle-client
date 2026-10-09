@@ -89,7 +89,7 @@ export const RegisterPage: React.FC = () => {
       setStep('otp');
       setResendCooldown(45);
       if (res?.devCode) {
-        setDevHint(`(Development Code: ${res.devCode})`);
+        setDevHint(res.devCode);
       }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to send verification email. Please try again.';
@@ -109,7 +109,7 @@ export const RegisterPage: React.FC = () => {
       const res = await authService.sendOtp(email.trim(), 'register');
       setResendCooldown(45);
       if (res?.devCode) {
-        setDevHint(`(Development Code: ${res.devCode})`);
+        setDevHint(res.devCode);
       }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Could not resend code. Please wait a moment.';
@@ -392,10 +392,15 @@ export const RegisterPage: React.FC = () => {
                     >
                       Click to Auto-Fill Code
                     </button>
-                    <p className="text-[10px] text-slate-500">
-                      (Brevo SMTP delivered this code to backend console while awaiting your Brevo account login)
+                    <p className="text-[10px] text-slate-400">
+                      💡 Tip: Also check your <span className="text-amber-300 font-semibold">Spam folder</span> or <span className="text-amber-300 font-semibold">Promotions tab</span> in Gmail.
                     </p>
                   </div>
+                )}
+                {!devHint && (
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    💡 Cannot find the email? Please check your <span className="text-violet-300 font-semibold">Spam / Junk</span> folder or <span className="text-violet-300 font-semibold">Promotions</span> tab.
+                  </p>
                 )}
               </div>
 

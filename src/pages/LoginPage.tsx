@@ -98,7 +98,7 @@ export const LoginPage: React.FC = () => {
       setOtpSent(true);
       setResendCooldown(45);
       if (res?.devCode) {
-        setDevHint(`(Development Code: ${res.devCode})`);
+        setDevHint(res.devCode);
       }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Could not send login code. Please check your email.';
