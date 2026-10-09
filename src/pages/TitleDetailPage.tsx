@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   Star,
   Clock,
@@ -61,6 +61,9 @@ const MOCK_MUTUAL_FRIENDS = [
 
 export const TitleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get('type') as 'film' | 'tv' | null;
+
   const [title, setTitle] = useState<Title | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +108,7 @@ export const TitleDetailPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await titleService.getTitleDetails(id);
+        const data = await titleService.getTitleDetails(id, typeParam || undefined);
         setTitle(data);
         if (data.seasons && data.seasons.length > 0) {
           setSelectedSeason(data.seasons[0].seasonNumber);
@@ -119,7 +122,7 @@ export const TitleDetailPage: React.FC = () => {
     };
 
     fetchDetails();
-  }, [id]);
+  }, [id, typeParam]);
 
   // Deduplicate watch providers (group by service and list regions)
   const deduplicatedProviders = useMemo(() => {

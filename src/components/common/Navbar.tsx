@@ -107,7 +107,7 @@ export const Navbar: React.FC = () => {
     setSearchOpen(false);
     setMobileSearchOpen(false);
     setSearchQuery('');
-    navigate(`/title/${title._id || title.tmdbId}`);
+    navigate(`/title/${title._id || title.tmdbId}${title.type ? `?type=${title.type}` : ''}`);
   };
 
   const handleSignOut = () => {

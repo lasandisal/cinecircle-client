@@ -153,7 +153,7 @@ export const RightSocialSidebar: React.FC = () => {
             trendingTitles.map((title, idx) => (
               <Link
                 key={title._id || title.tmdbId}
-                to={`/title/${title._id || title.tmdbId}`}
+                to={`/title/${title._id || title.tmdbId}${title.type ? `?type=${title.type}` : ''}`}
                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 transition-colors group"
               >
                 <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-400 w-4">

@@ -57,8 +57,10 @@ export const titleService = {
   /**
    * Get full title details by ID or TMDB ID
    */
-  async getTitleDetails(idOrTmdbId: string | number): Promise<Title> {
-    const res = await api.get(`/titles/${idOrTmdbId}`);
+  async getTitleDetails(idOrTmdbId: string | number, type?: 'film' | 'tv'): Promise<Title> {
+    const res = await api.get(`/titles/${idOrTmdbId}`, {
+      params: type ? { type } : undefined,
+    });
     return res.data.data.title;
   },
 
