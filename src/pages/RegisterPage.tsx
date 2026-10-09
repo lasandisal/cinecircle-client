@@ -1,14 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
   return (
     <div className="max-w-md mx-auto py-12">
       <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 mx-auto">
-            <UserPlus className="w-6 h-6" />
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <img
+              src="/logo.png"
+              alt="CineCircle"
+              className="w-14 h-14 rounded-2xl object-cover border border-slate-800 shadow-lg shadow-violet-500/20"
+            />
           </div>
           <h1 className="text-2xl font-bold text-white font-['Outfit']">Join CineCircle</h1>
           <p className="text-xs text-slate-400">Create your account and build your taste profile</p>

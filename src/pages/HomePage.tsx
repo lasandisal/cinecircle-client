@@ -7,10 +7,22 @@ export const HomePage: React.FC = () => {
     <div className="space-y-16 py-8">
       {/* Hero Section */}
       <section className="text-center space-y-6 max-w-3xl mx-auto">
+        <div className="flex justify-center mb-2">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 rounded-3xl blur-xl opacity-40 group-hover:opacity-75 transition duration-500"></div>
+            <img
+              src="/logo.png"
+              alt="CineCircle Logo"
+              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border border-slate-700/80 shadow-2xl shadow-indigo-500/20"
+            />
+          </div>
+        </div>
+
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold tracking-wide uppercase">
           <Sparkles className="w-3.5 h-3.5" />
           The Social Watch-Decision Platform
         </div>
+
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white font-['Outfit']">
           Spend less time scrolling.{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400">
