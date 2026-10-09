@@ -22,6 +22,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="recommend" element={<SoloRecommendationPage />} />
         <Route path="group" element={<GroupSessionPage />} />
         <Route path="title/:id" element={<TitleDetailPage />} />
+        <Route path="titles/:id" element={<TitleDetailPage />} />
         <Route
           path="watchlist"
           element={
