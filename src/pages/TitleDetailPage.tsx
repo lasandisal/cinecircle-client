@@ -231,6 +231,18 @@ export const TitleDetailPage: React.FC = () => {
     };
   }, [title?.watchProviders]);
 
+  // Deduplicate soundtracks by song name & artist
+  const uniqueSoundtracks = useMemo(() => {
+    if (!title?.soundtracks) return [];
+    const seen = new Set<string>();
+    return title.soundtracks.filter((track) => {
+      const key = `${track.songName.toLowerCase().trim()}-${track.artist.toLowerCase().trim()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [title?.soundtracks]);
+
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !newComment.trim() || !isAuthenticated) return;
@@ -832,7 +844,7 @@ export const TitleDetailPage: React.FC = () => {
           )}
 
           {/* Dedicated Official Soundtracks & Featured Songs Section */}
-          {title.soundtracks && title.soundtracks.length > 0 && (
+          {uniqueSoundtracks.length > 0 && (
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
@@ -840,12 +852,12 @@ export const TitleDetailPage: React.FC = () => {
                   <span>Official Soundtrack & Iconic Featured Songs</span>
                 </div>
                 <span className="text-[11px] text-slate-400 font-medium">
-                  {title.soundtracks.length} track{title.soundtracks.length === 1 ? '' : 's'}
+                  {uniqueSoundtracks.length} track{uniqueSoundtracks.length === 1 ? '' : 's'}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {title.soundtracks.map((track, idx) => {
+                {uniqueSoundtracks.map((track, idx) => {
                   const isPlaying = activePlayingSong === track.songName;
                   return (
                     <div
@@ -1449,33 +1461,6 @@ export const TitleDetailPage: React.FC = () => {
               </p>
             )}
           </div>
-
-          {/* Curated Soundtracks & Score */}
-          {title.soundtracks && title.soundtracks.length > 0 && (
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-sm space-y-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-pink-400" /> Soundtracks & Score
-              </h2>
-              <div className="space-y-2">
-                {title.soundtracks.map((track, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{track.songName}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{track.artist}</p>
-                    </div>
-                    {track.episodeRef && (
-                      <span className="text-[10px] text-indigo-400 font-mono shrink-0">
-                        {track.episodeRef}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
