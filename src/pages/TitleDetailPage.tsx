@@ -1032,7 +1032,7 @@ export const TitleDetailPage: React.FC = () => {
                               {/* Featured Song / Music in Episode */}
                               {ep.featuredSong && (
                                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                     <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                                       {ep.featuredSong.albumArtUrl ? (
                                         <img
@@ -1044,7 +1044,7 @@ export const TitleDetailPage: React.FC = () => {
                                         <Music className="w-4 h-4" />
                                       )}
                                     </div>
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 flex-1">
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="text-[11px] font-bold text-white truncate">
                                           {ep.featuredSong.songName}
@@ -1100,12 +1100,9 @@ export const TitleDetailPage: React.FC = () => {
 
                                     {/* Apple Music Launch */}
                                     <a
-                                      href={
-                                        ep.featuredSong.spotifyUrl ||
-                                        `https://music.apple.com/us/search?term=${encodeURIComponent(
-                                          ep.featuredSong.songName + ' ' + ep.featuredSong.artist
-                                        )}`
-                                      }
+                                      href={`https://music.apple.com/us/search?term=${encodeURIComponent(
+                                        ep.featuredSong.songName + ' ' + ep.featuredSong.artist
+                                      )}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       title="Open in Apple Music"
@@ -1118,9 +1115,12 @@ export const TitleDetailPage: React.FC = () => {
 
                                     {/* Spotify Launch */}
                                     <a
-                                      href={`https://open.spotify.com/search/${encodeURIComponent(
-                                        ep.featuredSong.songName + ' ' + ep.featuredSong.artist
-                                      )}`}
+                                      href={
+                                        ep.featuredSong.spotifyUrl ||
+                                        `https://open.spotify.com/search/${encodeURIComponent(
+                                          ep.featuredSong.songName + ' ' + ep.featuredSong.artist
+                                        )}`
+                                      }
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       title="Open in Spotify"
@@ -1249,14 +1249,14 @@ export const TitleDetailPage: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
+                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 group ${
                           isPlaying
                             ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
                             : 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700/90 hover:bg-slate-950/90'
                         }`}
                       >
-                        {/* Left: Track # + Album Art + Song Name & Artist */}
-                        <div className="flex items-center gap-3 min-w-0">
+                        {/* Left: Track # + Album Art + Song Name & Artist & Context Badge */}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           {/* Index Number */}
                           <span className="text-xs font-mono font-bold text-slate-500 w-5 text-center shrink-0">
                             {idx + 1}
@@ -1283,6 +1283,7 @@ export const TitleDetailPage: React.FC = () => {
                                 className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity cursor-pointer ${
                                   isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                 }`}
+                                aria-label={isPlaying ? 'Pause sample' : 'Play 30s sample'}
                               >
                                 {isPlaying ? (
                                   <Pause className="w-4 h-4 text-emerald-400 fill-emerald-400" />
@@ -1293,45 +1294,47 @@ export const TitleDetailPage: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Track Details */}
-                          <div className="min-w-0">
+                          {/* Track Details: Row 1 = Song Name (+ animation), Row 2 = Artist + Context Badge */}
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
+                              <p className="text-xs sm:text-sm font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
                                 {track.songName}
                               </p>
                               {isPlaying && (
-                                <div className="flex items-center gap-0.5">
+                                <div className="flex items-center gap-0.5 shrink-0">
                                   <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce"></span>
                                   <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                                   <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                                 </div>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-400 truncate">{track.artist}</p>
-                            {track.episodeRef && (
-                              <p className="text-[10px] text-emerald-400/90 font-medium truncate mt-0.5 sm:hidden">
-                                {track.episodeRef}
+
+                            <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                              <p className="text-[11px] text-slate-400 truncate shrink-0 max-w-[130px] sm:max-w-[200px]">
+                                {track.artist}
                               </p>
-                            )}
+                              {track.episodeRef && (
+                                <>
+                                  <span className="text-[10px] text-slate-600 shrink-0 hidden xs:inline">•</span>
+                                  <span
+                                    title={track.episodeRef}
+                                    className="text-[10px] text-emerald-400/90 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/20 font-medium truncate min-w-0 max-w-[180px] sm:max-w-[300px] lg:max-w-[420px]"
+                                  >
+                                    {track.episodeRef}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Middle: Scene / Episode Context Tag (Desktop) */}
-                        {track.episodeRef && (
-                          <div className="hidden sm:block max-w-xs text-right">
-                            <span className="inline-block text-[10px] text-slate-300 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800 truncate">
-                              {track.episodeRef}
-                            </span>
-                          </div>
-                        )}
-
                         {/* Right: Audio Action Controls */}
-                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           {track.previewUrl ? (
                             <button
                               type="button"
                               onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
                                 isPlaying
                                   ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
                                   : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
@@ -1340,52 +1343,52 @@ export const TitleDetailPage: React.FC = () => {
                               {isPlaying ? (
                                 <>
                                   <Pause className="w-3.5 h-3.5 fill-current" />
-                                  <span>Pause</span>
+                                  <span className="hidden xs:inline">Pause</span>
                                 </>
                               ) : (
                                 <>
                                   <Play className="w-3.5 h-3.5 fill-current" />
-                                  <span>30s Sample</span>
+                                  <span className="hidden xs:inline">30s Sample</span>
                                 </>
                               )}
                             </button>
                           ) : (
-                            <span className="text-[10px] text-slate-500 italic">No preview</span>
+                            <span className="text-[10px] text-slate-500 italic hidden sm:inline">No preview</span>
                           )}
 
                           {/* Apple Music Launch Button */}
                           <a
+                            href={`https://music.apple.com/us/search?term=${encodeURIComponent(
+                              track.songName + ' ' + track.artist
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Listen on Apple Music"
+                            className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 hover:text-pink-200 transition-all text-xs font-semibold flex items-center gap-1.5 group/am shrink-0"
+                          >
+                            <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.64-2.8 1.44-.6.69-1.12 1.83-.98 2.94 1.07.08 2.16-.54 2.79-1.28z" />
+                            </svg>
+                            <span className="hidden md:inline">Apple Music</span>
+                          </a>
+
+                          {/* Spotify Launch Button */}
+                          <a
                             href={
                               track.spotifyUrl ||
-                              `https://music.apple.com/us/search?term=${encodeURIComponent(
+                              `https://open.spotify.com/search/${encodeURIComponent(
                                 track.songName + ' ' + track.artist
                               )}`
                             }
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Listen on Apple Music"
-                            className="px-2 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 hover:text-pink-200 transition-all text-[11px] font-semibold flex items-center gap-1.5 group/am"
-                          >
-                            <svg className="w-3 h-3 fill-current shrink-0" viewBox="0 0 24 24">
-                              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.64-2.8 1.44-.6.69-1.12 1.83-.98 2.94 1.07.08 2.16-.54 2.79-1.28z" />
-                            </svg>
-                            <span className="hidden sm:inline">Apple Music</span>
-                          </a>
-
-                          {/* Spotify Launch Button */}
-                          <a
-                            href={`https://open.spotify.com/search/${encodeURIComponent(
-                              track.songName + ' ' + track.artist
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             title="Listen on Spotify"
-                            className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 transition-all text-[11px] font-semibold flex items-center gap-1.5 group/sp"
+                            className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 transition-all text-xs font-semibold flex items-center gap-1.5 group/sp shrink-0"
                           >
-                            <svg className="w-3 h-3 fill-current shrink-0" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
                               <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.563.387-.857.207-2.35-1.436-5.308-1.76-8.793-.963-.335.077-.67-.133-.746-.468-.077-.334.132-.67.467-.746 3.808-.87 7.076-.496 9.722 1.115.294.18.386.562.207.855zm1.227-2.73c-.227.369-.714.485-1.083.257-2.69-1.653-6.79-2.133-9.97-1.168-.413.125-.852-.11-.977-.523-.125-.413.11-.852.523-.977 3.633-1.103 8.147-.568 11.25 1.341.369.227.485.714.257 1.07zm.106-2.836C14.692 8.95 9.37 8.775 6.297 9.708c-.496.15-1.022-.133-1.173-.628-.151-.496.133-1.022.628-1.173 3.532-1.072 9.404-.866 13.115 1.337.447.265.592.845.327 1.292-.265.447-.845.592-1.292.327z" />
                             </svg>
-                            <span className="hidden sm:inline">Spotify</span>
+                            <span className="hidden md:inline">Spotify</span>
                           </a>
                         </div>
                       </div>

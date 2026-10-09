@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Users, Star, UserPlus, Sparkles, CheckCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export interface NotificationItem {
   id: string;
@@ -14,6 +14,8 @@ export interface NotificationItem {
   actionUrl?: string;
   actionText?: string;
 }
+
+const STORAGE_KEY = 'cinecircle_read_notifications_v1';
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
@@ -66,22 +68,61 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+const loadSavedNotifications = (): NotificationItem[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return INITIAL_NOTIFICATIONS;
+    const readIds = new Set<string>(JSON.parse(raw));
+    return INITIAL_NOTIFICATIONS.map((n) => ({
+      ...n,
+      read: n.read || readIds.has(n.id),
+    }));
+  } catch {
+    return INITIAL_NOTIFICATIONS;
+  }
+};
+
 export const NotificationsDropdown: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(loadSavedNotifications);
   const [activeTab, setActiveTab] = useState<'all' | 'circles'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Sync across tabs or storage updates
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setNotifications(loadSavedNotifications());
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const persistReadIds = (readIds: string[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(readIds));
+    } catch (e) {
+      console.error('Failed to save read notifications', e);
+    }
+  };
+
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      persistReadIds(updated.map((n) => n.id));
+      return updated;
+    });
   };
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      const readIds = updated.filter((n) => n.read).map((n) => n.id);
+      persistReadIds(readIds);
+      return updated;
+    });
   };
 
   // Close when clicking outside
@@ -108,7 +149,7 @@ export const NotificationsDropdown: React.FC = () => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         title="Notifications"
-        className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all relative active:scale-95 ${
+        className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all relative active:scale-95 cursor-pointer ${
           isOpen
             ? 'bg-slate-800 border-indigo-500/50 text-white'
             : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
@@ -129,16 +170,20 @@ export const NotificationsDropdown: React.FC = () => {
           <div className="p-3.5 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-white">Notifications</h3>
-              {unreadCount > 0 && (
+              {unreadCount > 0 ? (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                   {unreadCount} new
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  All caught up
                 </span>
               )}
             </div>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-[11px] text-slate-400 hover:text-indigo-400 font-medium flex items-center gap-1 transition-colors"
+                className="text-[11px] text-slate-400 hover:text-indigo-400 font-medium flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 <span>Mark all read</span>
@@ -150,7 +195,7 @@ export const NotificationsDropdown: React.FC = () => {
           <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-800/80 bg-slate-900/40 text-xs">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                 activeTab === 'all'
                   ? 'bg-slate-800 text-white font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
@@ -160,7 +205,7 @@ export const NotificationsDropdown: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('circles')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                 activeTab === 'circles'
                   ? 'bg-slate-800 text-white font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
@@ -180,9 +225,15 @@ export const NotificationsDropdown: React.FC = () => {
               filteredNotifications.map((n) => (
                 <div
                   key={n.id}
-                  onClick={() => markAsRead(n.id)}
-                  className={`p-3.5 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer ${
-                    !n.read ? 'bg-indigo-950/15' : ''
+                  onClick={() => {
+                    markAsRead(n.id);
+                    if (n.actionUrl) {
+                      setIsOpen(false);
+                      navigate(n.actionUrl);
+                    }
+                  }}
+                  className={`p-3.5 flex gap-3 hover:bg-slate-900/60 transition-colors cursor-pointer ${
+                    !n.read ? 'bg-indigo-950/25 border-l-2 border-indigo-500' : ''
                   }`}
                 >
                   {/* Avatar with icon badge */}
@@ -219,19 +270,26 @@ export const NotificationsDropdown: React.FC = () => {
                       <span className="text-[10px] text-slate-500">{n.timestamp}</span>
 
                       {n.actionText && (
-                        <Link
-                          to={n.actionUrl || '#'}
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                            setIsOpen(false);
+                            if (n.actionUrl) {
+                              navigate(n.actionUrl);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer"
                         >
                           {n.actionText}
-                        </Link>
+                        </button>
                       )}
                     </div>
                   </div>
 
                   {!n.read && (
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 self-center"></span>
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 self-center shadow-sm shadow-indigo-500/50"></span>
                   )}
                 </div>
               ))
