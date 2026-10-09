@@ -9,6 +9,7 @@ import {
   UserCheck,
   Tv,
 } from 'lucide-react';
+import { StreamingBadge } from '../common/StreamingBadge';
 
 interface LeftNavSidebarProps {
   activeTab: string;
@@ -58,16 +59,10 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
           <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
             <Tv className="w-3 h-3 text-cyan-400" /> Owned Services
           </span>
-          <div className="flex flex-wrap gap-1">
-            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-950/60 border border-red-800/60 text-red-300">
-              Netflix
-            </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-950/60 border border-blue-800/60 text-blue-300">
-              Prime Video
-            </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-950/60 border border-indigo-800/60 text-indigo-300">
-              Disney+
-            </span>
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            <StreamingBadge service="Netflix" size="sm" />
+            <StreamingBadge service="Prime Video" size="sm" />
+            <StreamingBadge service="Disney+" size="sm" />
           </div>
         </div>
       </div>

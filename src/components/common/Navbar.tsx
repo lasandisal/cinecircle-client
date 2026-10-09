@@ -5,10 +5,10 @@ import {
   Users,
   Bookmark,
   Search,
-  Bell,
   Plus,
   X,
 } from 'lucide-react';
+import { NotificationsDropdown } from './NotificationsDropdown';
 
 export const Navbar: React.FC = () => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -121,14 +121,8 @@ export const Navbar: React.FC = () => {
             <span>New Circle</span>
           </Link>
 
-          {/* Notifications */}
-          <button
-            title="Notifications"
-            className="w-8 h-8 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors relative active:scale-95"
-          >
-            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full"></span>
-          </button>
+          {/* Notifications Dropdown */}
+          <NotificationsDropdown />
 
           {/* User Profile */}
           <Link
