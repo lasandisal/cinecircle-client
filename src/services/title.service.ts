@@ -63,13 +63,22 @@ export const titleService = {
   },
 
   /**
-   * Add a discussion comment to a title
+   * Add a discussion comment or reply to a title (with optional rating or poll)
    */
-  async addComment(titleId: string, text: string, rating?: number, containsSpoilers = false) {
+  async addComment(
+    titleId: string,
+    text: string,
+    rating?: number,
+    containsSpoilers = false,
+    parentId?: string | null,
+    poll?: { question: string; options: string[] }
+  ) {
     const res = await api.post(`/titles/${titleId}/comments`, {
       text,
       rating,
       containsSpoilers,
+      parentId,
+      poll,
     });
     return res.data.data.comment;
   },
@@ -79,6 +88,22 @@ export const titleService = {
    */
   async likeComment(commentId: string) {
     const res = await api.post(`/titles/comments/${commentId}/like`);
+    return res.data.data.comment;
+  },
+
+  /**
+   * React to a discussion comment with emoji (Facebook-style)
+   */
+  async reactToComment(commentId: string, emoji: string) {
+    const res = await api.post(`/titles/comments/${commentId}/react`, { emoji });
+    return res.data.data.comment;
+  },
+
+  /**
+   * Vote on a comment poll
+   */
+  async voteCommentPoll(commentId: string, optionIndex: number) {
+    const res = await api.post(`/titles/comments/${commentId}/poll/vote`, { optionIndex });
     return res.data.data.comment;
   },
 

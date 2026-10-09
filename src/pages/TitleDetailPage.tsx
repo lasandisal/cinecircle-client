@@ -16,13 +16,26 @@ import {
   Send,
   Heart,
   CheckCircle2,
-  ThumbsUp,
   UserCheck,
+  CornerDownRight,
+  BarChart2,
+  Smile,
+  Check,
 } from 'lucide-react';
 import { titleService } from '../services/title.service';
-import type { Title } from '../types';
+import type { Title, TitleComment, ReactionEmoji } from '../types';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useAppSelector } from '../hooks/useAppRedux';
+
+// Available Facebook/Social Emoji Reactions
+const EMOJI_REACTIONS: { key: ReactionEmoji; emoji: string; label: string }[] = [
+  { key: 'love', emoji: '❤️', label: 'Love' },
+  { key: 'fire', emoji: '🔥', label: 'Fire' },
+  { key: 'popcorn', emoji: '🍿', label: 'Popcorn' },
+  { key: 'mindblown', emoji: '🤯', label: 'Mind Blown' },
+  { key: 'like', emoji: '👍', label: 'Like' },
+  { key: 'sad', emoji: '😢', label: 'Emotional' },
+];
 
 // Sample mutual friends for social proof
 const MOCK_MUTUAL_FRIENDS = [
@@ -68,9 +81,22 @@ export const TitleDetailPage: React.FC = () => {
   const [hasSpoiler, setHasSpoiler] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Record<string, boolean>>({});
-  const [likedComments, setLikedComments] = useState<Record<string, boolean>>({});
 
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  // Poll attachment state
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOption1, setPollOption1] = useState('');
+  const [pollOption2, setPollOption2] = useState('');
+
+  // Threaded reply state
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  // Reaction picker hover state (commentId -> boolean)
+  const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
+
+  const { isAuthenticated, user: currentUser } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     if (!id) return;
@@ -119,11 +145,21 @@ export const TitleDetailPage: React.FC = () => {
 
     setSubmittingComment(true);
     try {
+      const pollPayload =
+        showPollForm && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()
+          ? {
+              question: pollQuestion.trim(),
+              options: [pollOption1.trim(), pollOption2.trim()],
+            }
+          : undefined;
+
       const added = await titleService.addComment(
         title?._id || id,
         newComment.trim(),
         commentRating,
-        hasSpoiler
+        hasSpoiler,
+        null,
+        pollPayload
       );
 
       if (title) {
@@ -134,6 +170,10 @@ export const TitleDetailPage: React.FC = () => {
       }
       setNewComment('');
       setHasSpoiler(false);
+      setShowPollForm(false);
+      setPollQuestion('');
+      setPollOption1('');
+      setPollOption2('');
     } catch (err: any) {
       console.error('Error posting comment:', err);
     } finally {
@@ -141,22 +181,72 @@ export const TitleDetailPage: React.FC = () => {
     }
   };
 
-  const handleLikeComment = async (commentId: string) => {
-    if (likedComments[commentId]) return;
-    setLikedComments((prev) => ({ ...prev, [commentId]: true }));
+  const handlePostReply = async (parentCommentId: string) => {
+    if (!id || !replyText.trim() || !isAuthenticated) return;
 
+    setSubmittingReply(true);
     try {
-      await titleService.likeComment(commentId);
+      const addedReply = await titleService.addComment(
+        title?._id || id,
+        replyText.trim(),
+        undefined,
+        false,
+        parentCommentId
+      );
+
       if (title && title.comments) {
         setTitle({
           ...title,
-          comments: title.comments.map((c) =>
-            c._id === commentId ? { ...c, likesCount: (c.likesCount || 0) + 1 } : c
-          ),
+          comments: title.comments.map((c) => {
+            if (c._id === parentCommentId) {
+              return {
+                ...c,
+                replies: [...(c.replies || []), addedReply],
+              };
+            }
+            return c;
+          }),
+        });
+      }
+      setReplyingToId(null);
+      setReplyText('');
+    } catch (err: any) {
+      console.error('Error posting reply:', err);
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  const handleReaction = async (commentId: string, emoji: ReactionEmoji) => {
+    if (!isAuthenticated) return;
+    setActiveReactionPicker(null);
+
+    try {
+      const updated = await titleService.reactToComment(commentId, emoji);
+      if (title && title.comments) {
+        setTitle({
+          ...title,
+          comments: title.comments.map((c) => (c._id === commentId ? { ...c, reactions: updated.reactions } : c)),
         });
       }
     } catch (err) {
-      console.error('Failed to like comment:', err);
+      console.error('Failed to react:', err);
+    }
+  };
+
+  const handlePollVote = async (commentId: string, optionIndex: number) => {
+    if (!isAuthenticated) return;
+
+    try {
+      const updated = await titleService.voteCommentPoll(commentId, optionIndex);
+      if (title && title.comments) {
+        setTitle({
+          ...title,
+          comments: title.comments.map((c) => (c._id === commentId ? { ...c, poll: updated.poll } : c)),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to vote on poll:', err);
     }
   };
 
@@ -532,24 +622,27 @@ export const TitleDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Discussion & Enthusiast Comments */}
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-5">
+          {/* Discussion & Enthusiast Comments (Facebook-Style Reactions, Threaded Replies, and Polls) */}
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-400">
                 <MessageSquare className="w-4 h-4 text-violet-400" />
-                <span>Discussion & Reviews</span>
+                <span>Discussion, Reviews & Community Polls</span>
               </div>
-              <span className="text-xs text-slate-500">
-                {title.comments?.length || 0} review{title.comments?.length === 1 ? '' : 's'}
+              <span className="text-xs text-slate-500 font-medium">
+                {title.comments?.length || 0} discussion{title.comments?.length === 1 ? '' : 's'}
               </span>
             </div>
 
-            {/* Comment Form with Rating Selector */}
+            {/* Comment Form with Rating Selector & Poll Toggle */}
             {isAuthenticated ? (
-              <form onSubmit={handlePostComment} className="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-                <div className="flex items-center justify-between">
+              <form
+                onSubmit={handlePostComment}
+                className="space-y-3.5 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-300">
-                    Leave your rating & review:
+                    Your rating & review:
                   </span>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -577,23 +670,77 @@ export const TitleDetailPage: React.FC = () => {
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="What did you think of the pacing, performances, or twists?"
+                  placeholder="Share your thoughts on the plot, character arcs, or score..."
                   rows={3}
                   className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                {/* Optional Community Poll Accordion */}
+                {showPollForm && (
+                  <div className="p-3.5 rounded-xl bg-slate-900/90 border border-indigo-500/30 space-y-2.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <BarChart2 className="w-3.5 h-3.5 text-indigo-400" /> Community Poll Question
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPollForm(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-300"
+                      >
+                        Cancel Poll
+                      </button>
+                    </div>
                     <input
-                      type="checkbox"
-                      checked={hasSpoiler}
-                      onChange={(e) => setHasSpoiler(e.target.checked)}
-                      className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                      type="text"
+                      placeholder="e.g. Which season had the best finale?"
+                      value={pollQuestion}
+                      onChange={(e) => setPollQuestion(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                     />
-                    <span className="flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> Contains Spoilers
-                    </span>
-                  </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Option 1 (e.g. Season 1)"
+                        value={pollOption1}
+                        onChange={(e) => setPollOption1(e.target.value)}
+                        className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Option 2 (e.g. Season 4)"
+                        value={pollOption2}
+                        onChange={(e) => setPollOption2(e.target.value)}
+                        className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hasSpoiler}
+                        onChange={(e) => setHasSpoiler(e.target.checked)}
+                        className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                      />
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> Contains Spoilers
+                      </span>
+                    </label>
+
+                    {!showPollForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPollForm(true)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5" />
+                        <span>Attach Poll</span>
+                      </button>
+                    )}
+                  </div>
 
                   <button
                     type="submit"
@@ -620,49 +767,72 @@ export const TitleDetailPage: React.FC = () => {
                   <Link to="/register" className="text-indigo-400 hover:underline font-semibold">
                     create a free account
                   </Link>{' '}
-                  to post your star rating and review.
+                  to react, reply, vote on polls, and post your review.
                 </p>
               </div>
             )}
 
-            {/* Comments List */}
-            <div className="space-y-3 pt-2">
+            {/* Comments Thread List */}
+            <div className="space-y-4 pt-2">
               {title.comments && title.comments.length > 0 ? (
-                title.comments.map((comment) => {
+                title.comments.map((comment: TitleComment) => {
                   const isSpoiler = comment.containsSpoilers;
                   const isRevealed = revealedSpoilers[comment._id];
-                  const hasLiked = likedComments[comment._id];
+
+                  // Count reactions grouped by emoji
+                  const reactionCounts: Record<string, number> = {};
+                  (comment.reactions || []).forEach((r) => {
+                    reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+                  });
+
+                  // Has current user reacted?
+                  const userReaction = (comment.reactions || []).find(
+                    (r) => r.user === currentUser?._id
+                  );
+
+                  // Calculate poll votes total
+                  const totalPollVotes = comment.poll?.options.reduce(
+                    (acc, opt) => acc + opt.votes.length,
+                    0
+                  ) || 0;
 
                   return (
                     <div
                       key={comment._id}
-                      className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2.5"
+                      className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3"
                     >
+                      {/* Comment Header */}
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-indigo-600/30 flex items-center justify-center font-bold text-[10px] text-indigo-300">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center font-bold text-[11px] text-white shadow-sm">
                             {comment.user?.name?.charAt(0) || 'U'}
                           </div>
-                          <span className="font-bold text-white">{comment.user?.name || 'User'}</span>
-                          {comment.user?.role === 'admin' && (
-                            <span className="text-[10px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded">
-                              Curator
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white">{comment.user?.name || 'User'}</span>
+                              {comment.user?.role === 'admin' && (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded font-semibold">
+                                  Curator
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(comment.createdAt).toLocaleDateString()}
                             </span>
-                          )}
-                          {comment.rating && (
-                            <span className="flex items-center gap-1 text-[11px] text-amber-400 font-bold bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">
-                              <Star className="w-3 h-3 fill-amber-400" />
-                              {comment.rating}.0
-                            </span>
-                          )}
+                          </div>
                         </div>
-                        <span className="text-[10px] text-slate-500">
-                          {new Date(comment.createdAt).toLocaleDateString()}
-                        </span>
+
+                        {comment.rating && (
+                          <span className="flex items-center gap-1 text-[11px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20">
+                            <Star className="w-3 h-3 fill-amber-400" />
+                            {comment.rating}.0
+                          </span>
+                        )}
                       </div>
 
+                      {/* Comment Text / Spoiler */}
                       {isSpoiler && !isRevealed ? (
-                        <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 flex items-center justify-between text-xs text-amber-300">
+                        <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-800/40 flex items-center justify-between text-xs text-amber-300">
                           <span className="flex items-center gap-1.5">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                             Review marked as spoiler
@@ -675,26 +845,205 @@ export const TitleDetailPage: React.FC = () => {
                           </button>
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                        <p className="text-xs text-slate-200 leading-relaxed font-normal">
                           {comment.text}
                         </p>
                       )}
 
-                      {/* Comment Actions (Like with Counter) */}
-                      <div className="flex items-center gap-4 pt-1 border-t border-slate-900 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => handleLikeComment(comment._id)}
-                          className={`flex items-center gap-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
-                            hasLiked
-                              ? 'text-indigo-400'
-                              : 'text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          <ThumbsUp className={`w-3.5 h-3.5 ${hasLiked ? 'fill-indigo-400' : ''}`} />
-                          <span>{comment.likesCount || 0} Helpful</span>
-                        </button>
+                      {/* Embedded Community Poll (if attached) */}
+                      {comment.poll && (
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-white flex items-center gap-1.5">
+                              <BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
+                              {comment.poll.question}
+                            </span>
+                            <span className="text-[10px] text-slate-400">{totalPollVotes} votes</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {comment.poll.options.map((opt, optIdx) => {
+                              const voteCount = opt.votes.length;
+                              const percent = totalPollVotes > 0 ? Math.round((voteCount / totalPollVotes) * 100) : 0;
+                              const hasVotedThis = currentUser?._id && opt.votes.includes(currentUser._id);
+
+                              return (
+                                <button
+                                  key={optIdx}
+                                  type="button"
+                                  disabled={!isAuthenticated}
+                                  onClick={() => handlePollVote(comment._id, optIdx)}
+                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all ${
+                                    hasVotedThis
+                                      ? 'border-indigo-500 bg-indigo-950/40'
+                                      : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'
+                                  }`}
+                                >
+                                  {/* Progress bar background fill */}
+                                  <div
+                                    className="absolute left-0 top-0 bottom-0 bg-indigo-600/20 transition-all duration-300"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                  <div className="relative z-10 flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                                      {hasVotedThis && <Check className="w-3 h-3 text-indigo-400" />}
+                                      {opt.optionText}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-400">
+                                      {percent}% ({voteCount})
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Social Reaction Counts & Action Bar */}
+                      <div className="pt-2 border-t border-slate-900 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        {/* Display Active Emoji Reaction Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {Object.entries(reactionCounts).map(([emojiKey, count]) => {
+                            const found = EMOJI_REACTIONS.find((e) => e.key === emojiKey);
+                            const isMyReaction = userReaction?.emoji === emojiKey;
+
+                            return (
+                              <button
+                                key={emojiKey}
+                                type="button"
+                                onClick={() => handleReaction(comment._id, emojiKey as ReactionEmoji)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${
+                                  isMyReaction
+                                    ? 'bg-indigo-600/25 border-indigo-500/50 text-white'
+                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                <span>{found?.emoji || '👍'}</span>
+                                <span>{count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Reaction Picker & Reply Buttons */}
+                        <div className="relative flex items-center gap-3">
+                          {/* Facebook-style Reaction Popover */}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActiveReactionPicker(
+                                  activeReactionPicker === comment._id ? null : comment._id
+                                )
+                              }
+                              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                            >
+                              <Smile className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>{userReaction ? 'Reacted' : 'React'}</span>
+                            </button>
+
+                            {/* Floating Reaction Bar */}
+                            {activeReactionPicker === comment._id && (
+                              <div className="absolute left-0 bottom-full mb-2 bg-slate-900 border border-slate-700/80 rounded-full px-2.5 py-1.5 shadow-2xl flex items-center gap-2 z-30 animate-in zoom-in-95 duration-150 backdrop-blur-md">
+                                {EMOJI_REACTIONS.map((item) => (
+                                  <button
+                                    key={item.key}
+                                    type="button"
+                                    onClick={() => handleReaction(comment._id, item.key)}
+                                    className="text-base hover:scale-130 transition-transform p-0.5 cursor-pointer"
+                                    title={item.label}
+                                  >
+                                    {item.emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Reply Toggle */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReplyingToId(replyingToId === comment._id ? null : comment._id)
+                            }
+                            className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <CornerDownRight className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Reply</span>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Inline Reply Input Box */}
+                      {replyingToId === comment._id && (
+                        <div className="pt-2 pl-4 border-l-2 border-indigo-500/40 space-y-2 animate-in fade-in duration-150">
+                          <textarea
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder={`Reply to ${comment.user?.name || 'this review'}...`}
+                            rows={2}
+                            className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingToId(null);
+                                setReplyText('');
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-[11px] text-slate-400 hover:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!replyText.trim() || submittingReply}
+                              onClick={() => handlePostReply(comment._id)}
+                              className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all"
+                            >
+                              {submittingReply ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Send className="w-3 h-3" />
+                              )}
+                              <span>Reply</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Nested Threaded Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="pt-2 pl-4 space-y-2.5 border-l-2 border-slate-800">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                            {comment.replies.length} Repl{comment.replies.length === 1 ? 'y' : 'ies'}
+                          </span>
+                          {comment.replies.map((reply) => (
+                            <div
+                              key={reply._id}
+                              className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/60 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded bg-violet-600/30 flex items-center justify-center font-bold text-[9px] text-violet-300">
+                                    {reply.user?.name?.charAt(0) || 'U'}
+                                  </div>
+                                  <span className="font-semibold text-white">
+                                    {reply.user?.name || 'User'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-500">
+                                  {new Date(reply.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                                {reply.text}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })

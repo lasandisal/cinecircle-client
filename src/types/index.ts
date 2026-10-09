@@ -12,6 +12,45 @@ export interface User {
   tasteProfile?: string;
 }
 
+export type ReactionEmoji = 'like' | 'love' | 'fire' | 'mindblown' | 'popcorn' | 'sad';
+
+export interface CommentPollOption {
+  _id?: string;
+  optionText: string;
+  votes: string[];
+}
+
+export interface CommentPoll {
+  question: string;
+  options: CommentPollOption[];
+}
+
+export interface CommentReaction {
+  user: string;
+  emoji: ReactionEmoji;
+}
+
+export interface TitleComment {
+  _id: string;
+  title?: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+  };
+  text: string;
+  rating?: number;
+  likesCount?: number;
+  parentId?: string | null;
+  reactions?: CommentReaction[];
+  poll?: CommentPoll;
+  replies?: TitleComment[];
+  containsSpoilers?: boolean;
+  createdAt: string;
+}
+
 export interface Title {
   _id: string;
   tmdbId: number;
@@ -54,21 +93,7 @@ export interface Title {
     episodeRef?: string;
     popularityRank: number;
   }[];
-  comments?: {
-    _id: string;
-    user: {
-      _id: string;
-      name: string;
-      email: string;
-      role: string;
-      avatar?: string;
-    };
-    text: string;
-    rating?: number;
-    likesCount?: number;
-    containsSpoilers?: boolean;
-    createdAt: string;
-  }[];
+  comments?: TitleComment[];
 }
 
 export interface WatchlistItem {
