@@ -373,12 +373,29 @@ export const RegisterPage: React.FC = () => {
                     setStep('info');
                     setLocalError(null);
                   }}
-                  className="text-[11px] text-cyan-400 hover:underline inline-flex items-center gap-1 font-medium"
+                  className="text-[11px] text-cyan-400 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <ArrowLeft className="w-3 h-3" /> Change email address
                 </button>
                 {devHint && (
-                  <p className="text-[11px] text-amber-400/90 font-mono mt-1">{devHint}</p>
+                  <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1.5 animate-in fade-in duration-200">
+                    <p className="text-[11px] font-semibold text-amber-300">
+                      ⚡ Development Verification Code:
+                    </p>
+                    <div className="text-xl font-mono font-black tracking-widest text-amber-400">
+                      {devHint}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOtp(devHint)}
+                      className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      Click to Auto-Fill Code
+                    </button>
+                    <p className="text-[10px] text-slate-500">
+                      (Brevo SMTP delivered this code to backend console while awaiting your Brevo account login)
+                    </p>
+                  </div>
                 )}
               </div>
 

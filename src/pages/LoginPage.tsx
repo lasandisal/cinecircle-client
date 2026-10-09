@@ -348,7 +348,18 @@ export const LoginPage: React.FC = () => {
                       Use another email
                     </button>
                     {devHint && (
-                      <p className="text-[11px] text-amber-400/90 font-mono mt-1">{devHint}</p>
+                      <div className="mt-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1">
+                        <div className="text-lg font-mono font-bold tracking-widest text-amber-400">
+                          {devHint}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOtp(devHint)}
+                          className="px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold"
+                        >
+                          Click to Auto-Fill Code
+                        </button>
+                      </div>
                     )}
                   </div>
 
