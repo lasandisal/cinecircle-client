@@ -446,6 +446,19 @@ export const TitleDetailPage: React.FC = () => {
     );
   }, [title?.soundtracks, soundtrackSearchQuery]);
 
+  const getStreamingServiceUrl = (serviceName: string, titleName: string) => {
+    const norm = serviceName.toLowerCase();
+    if (norm.includes('netflix')) return `https://www.netflix.com/search?q=${encodeURIComponent(titleName)}`;
+    if (norm.includes('prime') || norm.includes('amazon')) return `https://www.amazon.com/s?k=${encodeURIComponent(titleName)}&i=instant-video`;
+    if (norm.includes('max') || norm.includes('hbo')) return `https://www.max.com/search?q=${encodeURIComponent(titleName)}`;
+    if (norm.includes('disney')) return `https://www.disneyplus.com/search?q=${encodeURIComponent(titleName)}`;
+    if (norm.includes('apple')) return `https://tv.apple.com/search?term=${encodeURIComponent(titleName)}`;
+    if (norm.includes('hulu')) return `https://www.hulu.com/search?q=${encodeURIComponent(titleName)}`;
+    if (norm.includes('paramount')) return `https://www.paramountplus.com/search/?q=${encodeURIComponent(titleName)}`;
+    if (norm.includes('peacock')) return `https://www.peacocktv.com/search?q=${encodeURIComponent(titleName)}`;
+    return `https://www.google.com/search?q=${encodeURIComponent(`Watch ${titleName} on ${serviceName}`)}`;
+  };
+
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !newComment.trim() || !isAuthenticated) return;
@@ -1080,17 +1093,38 @@ export const TitleDetailPage: React.FC = () => {
                                       </button>
                                     )}
 
-                                    {ep.featuredSong.spotifyUrl && (
-                                      <a
-                                        href={ep.featuredSong.spotifyUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title="Open in Apple Music / iTunes"
-                                        className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all text-xs"
-                                      >
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
-                                    )}
+                                    {/* Apple Music Launch */}
+                                    <a
+                                      href={
+                                        ep.featuredSong.spotifyUrl ||
+                                        `https://music.apple.com/us/search?term=${encodeURIComponent(
+                                          ep.featuredSong.songName + ' ' + ep.featuredSong.artist
+                                        )}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Open in Apple Music"
+                                      className="p-1.5 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 hover:text-pink-200 transition-all text-xs flex items-center gap-1"
+                                    >
+                                      <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.64-2.8 1.44-.6.69-1.12 1.83-.98 2.94 1.07.08 2.16-.54 2.79-1.28z" />
+                                      </svg>
+                                    </a>
+
+                                    {/* Spotify Launch */}
+                                    <a
+                                      href={`https://open.spotify.com/search/${encodeURIComponent(
+                                        ep.featuredSong.songName + ' ' + ep.featuredSong.artist
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Open in Spotify"
+                                      className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 transition-all text-xs flex items-center gap-1"
+                                    >
+                                      <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.563.387-.857.207-2.35-1.436-5.308-1.76-8.793-.963-.335.077-.67-.133-.746-.468-.077-.334.132-.67.467-.746 3.808-.87 7.076-.496 9.722 1.115.294.18.386.562.207.855zm1.227-2.73c-.227.369-.714.485-1.083.257-2.69-1.653-6.79-2.133-9.97-1.168-.413.125-.852-.11-.977-.523-.125-.413.11-.852.523-.977 3.633-1.103 8.147-.568 11.25 1.341.369.227.485.714.257 1.07zm.106-2.836C14.692 8.95 9.37 8.775 6.297 9.708c-.496.15-1.022-.133-1.173-.628-.151-.496.133-1.022.628-1.173 3.532-1.072 9.404-.866 13.115 1.337.447.265.592.845.327 1.292-.265.447-.845.592-1.292.327z" />
+                                      </svg>
+                                    </a>
 
                                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0 flex items-center gap-1">
                                       <Volume2 className="w-2.5 h-2.5" /> Iconic Scene Music
@@ -1314,17 +1348,40 @@ export const TitleDetailPage: React.FC = () => {
                             <span className="text-[10px] text-slate-500 italic">No preview</span>
                           )}
 
-                          {track.spotifyUrl && (
-                            <a
-                              href={track.spotifyUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Open full track in Apple Music / iTunes"
-                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all text-xs"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          )}
+                          {/* Apple Music Launch Button */}
+                          <a
+                            href={
+                              track.spotifyUrl ||
+                              `https://music.apple.com/us/search?term=${encodeURIComponent(
+                                track.songName + ' ' + track.artist
+                              )}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Listen on Apple Music"
+                            className="px-2 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 hover:text-pink-200 transition-all text-[11px] font-semibold flex items-center gap-1.5 group/am"
+                          >
+                            <svg className="w-3 h-3 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.64-2.8 1.44-.6.69-1.12 1.83-.98 2.94 1.07.08 2.16-.54 2.79-1.28z" />
+                            </svg>
+                            <span className="hidden sm:inline">Apple Music</span>
+                          </a>
+
+                          {/* Spotify Launch Button */}
+                          <a
+                            href={`https://open.spotify.com/search/${encodeURIComponent(
+                              track.songName + ' ' + track.artist
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Listen on Spotify"
+                            className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 transition-all text-[11px] font-semibold flex items-center gap-1.5 group/sp"
+                          >
+                            <svg className="w-3 h-3 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.563.387-.857.207-2.35-1.436-5.308-1.76-8.793-.963-.335.077-.67-.133-.746-.468-.077-.334.132-.67.467-.746 3.808-.87 7.076-.496 9.722 1.115.294.18.386.562.207.855zm1.227-2.73c-.227.369-.714.485-1.083.257-2.69-1.653-6.79-2.133-9.97-1.168-.413.125-.852-.11-.977-.523-.125-.413.11-.852.523-.977 3.633-1.103 8.147-.568 11.25 1.341.369.227.485.714.257 1.07zm.106-2.836C14.692 8.95 9.37 8.775 6.297 9.708c-.496.15-1.022-.133-1.173-.628-.151-.496.133-1.022.628-1.173 3.532-1.072 9.404-.866 13.115 1.337.447.265.592.845.327 1.292-.265.447-.845.592-1.292.327z" />
+                            </svg>
+                            <span className="hidden sm:inline">Spotify</span>
+                          </a>
                         </div>
                       </div>
                     );
@@ -1995,14 +2052,18 @@ export const TitleDetailPage: React.FC = () => {
               <div className="space-y-2">
                 {/* Most Famous Streaming Platforms (Top 3-4 e.g. Netflix, Prime Video, Max, etc.) */}
                 {primaryProviders.map((wp, idx) => (
-                  <div
+                  <a
                     key={`prim-${idx}`}
-                    className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between group shadow-sm"
+                    href={getStreamingServiceUrl(wp.service, title.name)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Watch ${title.name} on ${wp.service}`}
+                    className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-900/60 transition-all flex items-center justify-between group shadow-sm cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <StreamingBadge service={wp.service} size="sm" />
                       <div className="min-w-0">
-                        <span className="text-xs font-semibold text-slate-200 block truncate group-hover:text-white transition-colors">
+                        <span className="text-xs font-semibold text-slate-200 block truncate group-hover:text-indigo-300 transition-colors">
                           {wp.service}
                         </span>
                         <span className="text-[10px] text-slate-500 block truncate">
@@ -2010,10 +2071,13 @@ export const TitleDetailPage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/80 shrink-0">
-                      {wp.type}
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/80">
+                        {wp.type}
+                      </span>
+                      <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                    </div>
+                  </a>
                 ))}
 
                 {/* Collapsible Other Services (e.g. YouTube TV, TBS, JioHotstar, Crave, etc.) */}
@@ -2029,14 +2093,18 @@ export const TitleDetailPage: React.FC = () => {
                     </div>
 
                     {hiddenProviders.map((wp, idx) => (
-                      <div
+                      <a
                         key={`hidden-${idx}`}
-                        className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-center justify-between"
+                        href={getStreamingServiceUrl(wp.service, title.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Watch ${title.name} on ${wp.service}`}
+                        className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-indigo-500/50 hover:bg-slate-900/60 transition-all flex items-center justify-between group cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <StreamingBadge service={wp.service} size="sm" />
                           <div className="min-w-0">
-                            <span className="text-xs font-medium text-slate-300 block truncate">
+                            <span className="text-xs font-medium text-slate-300 block truncate group-hover:text-indigo-300 transition-colors">
                               {wp.service}
                             </span>
                             <span className="text-[10px] text-slate-500 block truncate">
@@ -2044,10 +2112,13 @@ export const TitleDetailPage: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        <span className="text-[9px] uppercase font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 shrink-0">
-                          {wp.type}
-                        </span>
-                      </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[9px] uppercase font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                            {wp.type}
+                          </span>
+                          <ExternalLink className="w-2.5 h-2.5 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                        </div>
+                      </a>
                     ))}
                   </div>
                 )}
