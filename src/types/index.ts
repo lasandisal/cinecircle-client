@@ -219,6 +219,14 @@ export interface Title {
     spotifyUrl?: string;
   }[];
   comments?: TitleComment[];
+  communityWatchers?: {
+    userId: string;
+    name: string;
+    handle?: string;
+    avatar?: string;
+    starRating?: number;
+    watchedAt?: string;
+  }[];
 }
 
 export interface WatchlistItem {

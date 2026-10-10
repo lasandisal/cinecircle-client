@@ -16,7 +16,6 @@ import {
   Send,
   Heart,
   CheckCircle2,
-  UserCheck,
   CornerDownRight,
   BarChart2,
   Smile,
@@ -46,31 +45,6 @@ const EMOJI_REACTIONS: { key: ReactionEmoji; emoji: string; label: string }[] = 
   { key: 'mindblown', emoji: '🤯', label: 'Mind Blown' },
   { key: 'like', emoji: '👍', label: 'Like' },
   { key: 'sad', emoji: '😢', label: 'Emotional' },
-];
-
-// Real community watchers for social proof
-const REAL_COMMUNITY_WATCHERS = [
-  {
-    name: 'MishtiX Creations',
-    handle: '@mishtix',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
-    rating: 5,
-    note: 'Masterpiece cinematography and depth.',
-  },
-  {
-    name: 'PulseFit',
-    handle: '@pulsefit',
-    avatar: 'https://ui-avatars.com/api/?name=Pulse+Fit&background=0d9488&color=fff&size=200',
-    rating: 4.5,
-    note: 'Unreal sound design & raw energy.',
-  },
-  {
-    name: 'EventSphere',
-    handle: '@eventsphere',
-    avatar: 'https://ui-avatars.com/api/?name=Event+Sphere&background=9333ea&color=fff&size=200',
-    rating: 5,
-    note: 'Definitive circle recommendation.',
-  },
 ];
 
 export const TitleDetailPage: React.FC = () => {
@@ -134,6 +108,36 @@ export const TitleDetailPage: React.FC = () => {
       setIsWatched(nextWatched);
       await watchlistService.markAsWatched(title._id, nextWatched);
       setIsInWatchlist(true);
+
+      if (currentUser) {
+        setTitle((prev) => {
+          if (!prev) return prev;
+          const currentWatchers = prev.communityWatchers || [];
+          const myId = currentUser._id || (currentUser as any).id;
+          if (nextWatched) {
+            const exists = currentWatchers.some((w) => w.userId === myId);
+            if (!exists) {
+              const newWatcher = {
+                userId: myId,
+                name: currentUser.name,
+                handle: currentUser.handle,
+                avatar:
+                  currentUser.avatar ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=6366f1&color=fff`,
+                starRating: userRating || undefined,
+                watchedAt: new Date().toISOString(),
+              };
+              return { ...prev, communityWatchers: [newWatcher, ...currentWatchers] };
+            }
+          } else {
+            return {
+              ...prev,
+              communityWatchers: currentWatchers.filter((w) => w.userId !== myId),
+            };
+          }
+          return prev;
+        });
+      }
     } catch (err) {
       console.error('Failed to update watched status:', err);
     }
@@ -147,6 +151,35 @@ export const TitleDetailPage: React.FC = () => {
       setIsWatched(true);
       setIsInWatchlist(true);
       await watchlistService.rateTitle(title._id, star);
+
+      if (currentUser) {
+        setTitle((prev) => {
+          if (!prev) return prev;
+          const currentWatchers = prev.communityWatchers || [];
+          const myId = currentUser._id || (currentUser as any).id;
+          const exists = currentWatchers.some((w) => w.userId === myId);
+          if (exists) {
+            return {
+              ...prev,
+              communityWatchers: currentWatchers.map((w) =>
+                w.userId === myId ? { ...w, starRating: star } : w
+              ),
+            };
+          } else {
+            const newWatcher = {
+              userId: myId,
+              name: currentUser.name,
+              handle: currentUser.handle,
+              avatar:
+                currentUser.avatar ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=6366f1&color=fff`,
+              starRating: star,
+              watchedAt: new Date().toISOString(),
+            };
+            return { ...prev, communityWatchers: [newWatcher, ...currentWatchers] };
+          }
+        });
+      }
     } catch (err) {
       console.error('Failed to rate title:', err);
     }
@@ -801,40 +834,106 @@ export const TitleDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Mutual Watched Friend Banner */}
-      <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900/40 border border-indigo-500/20 rounded-2xl p-4 sm:p-5 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex -space-x-2 overflow-hidden shrink-0">
-            {REAL_COMMUNITY_WATCHERS.map((f, i) => (
-              <img
-                key={i}
-                src={f.avatar}
-                alt={f.name}
-                className="inline-block w-8 h-8 rounded-full ring-2 ring-slate-950 object-cover"
-              />
-            ))}
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-200">
-              Watched by <strong className="text-white">MishtiX Creations</strong>,{' '}
-              <strong className="text-white">PulseFit</strong>, and verified circle members
-            </p>
-            <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-400">
-              {REAL_COMMUNITY_WATCHERS.map((f, i) => (
-                <span key={i} className="flex items-center gap-1">
-                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  <span className="text-slate-300 font-medium">{f.name.split(' ')[0]}:</span>{' '}
-                  <span className="text-slate-400 italic">"{f.note}"</span>
-                </span>
+      {/* Real Community Watcher Social Banner */}
+      {title.communityWatchers && title.communityWatchers.length > 0 ? (
+        <div className="bg-gradient-to-r from-indigo-950/50 via-purple-950/40 to-slate-900/60 border border-indigo-500/25 rounded-2xl p-4 sm:p-5 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="flex -space-x-2.5 overflow-hidden shrink-0">
+              {title.communityWatchers.slice(0, 5).map((watcher, i) => (
+                <img
+                  key={watcher.userId || i}
+                  src={
+                    watcher.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(watcher.name)}&background=6366f1&color=fff&size=100`
+                  }
+                  alt={watcher.name}
+                  title={`${watcher.name}${watcher.starRating ? ` • Rated ${watcher.starRating}★` : ''}`}
+                  className="inline-block w-8 h-8 rounded-full ring-2 ring-slate-950 object-cover"
+                />
               ))}
             </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-200">
+                Watched by{' '}
+                <strong className="text-white">
+                  {title.communityWatchers[0]?.name || 'Circle Member'}
+                </strong>
+                {title.communityWatchers.length === 2 && (
+                  <>
+                    {' and '}
+                    <strong className="text-white">{title.communityWatchers[1].name}</strong>
+                  </>
+                )}
+                {title.communityWatchers.length > 2 && (
+                  <>
+                    {', '}
+                    <strong className="text-white">{title.communityWatchers[1].name}</strong>
+                    {`, and ${title.communityWatchers.length - 2} other circle member${
+                      title.communityWatchers.length - 2 > 1 ? 's' : ''
+                    }`}
+                  </>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+                {title.communityWatchers.slice(0, 4).map((w, idx) => (
+                  <span
+                    key={w.userId || idx}
+                    className="inline-flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-0.5 rounded-lg border border-slate-700/60"
+                  >
+                    <span className="text-slate-300 font-medium">{w.name.split(' ')[0]}</span>
+                    {w.starRating ? (
+                      <span className="flex items-center gap-0.5 text-amber-400 font-bold">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        {w.starRating}/5
+                      </span>
+                    ) : (
+                      <span className="text-emerald-400 text-[10px] font-semibold">Watched</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Verified Watch Activity
+            </span>
           </div>
         </div>
+      ) : (
+        <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 text-indigo-400">
+              <Film className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-200">
+                {isWatched
+                  ? "You've marked this title as watched!"
+                  : "No circle members have logged this title yet."}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {isWatched
+                  ? 'Your rating and review help recommendations across your circles.'
+                  : 'Be the first in your circle to watch and leave your rating!'}
+              </p>
+            </div>
+          </div>
 
-        <span className="text-[11px] font-bold text-indigo-400 bg-indigo-500/15 border border-indigo-500/30 px-3 py-1 rounded-xl shrink-0 flex items-center gap-1">
-          <UserCheck className="w-3.5 h-3.5 text-indigo-400" /> 92% Taste Match
-        </span>
-      </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {!isWatched && (
+              <button
+                type="button"
+                onClick={toggleWatchedTitle}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                <Check className="w-3.5 h-3.5" /> Mark as Watched
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Details + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
