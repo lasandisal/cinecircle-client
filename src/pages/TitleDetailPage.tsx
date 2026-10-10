@@ -281,8 +281,9 @@ export const TitleDetailPage: React.FC = () => {
     }
   };
 
-  const handleTogglePlaySong = (songName: string, previewUrl?: string) => {
-    if (activePlayingSong === songName) {
+  const handleTogglePlaySong = (songName: string, artist: string, previewUrl?: string) => {
+    const trackKey = `${songName.trim()}::${artist.trim()}`;
+    if (activePlayingSong === trackKey) {
       if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();
       }
@@ -302,7 +303,7 @@ export const TitleDetailPage: React.FC = () => {
         audio.play().catch(() => setActivePlayingSong(null));
         audioPlayerRef.current = audio;
       }
-      setActivePlayingSong(songName);
+      setActivePlayingSong(trackKey);
     }
   };
 
@@ -1151,7 +1152,7 @@ export const TitleDetailPage: React.FC = () => {
                                         <span className="text-[10px] text-slate-400 truncate">
                                           • {ep.featuredSong.artist}
                                         </span>
-                                        {activePlayingSong === ep.featuredSong.songName && (
+                                        {activePlayingSong === `${ep.featuredSong.songName}::${ep.featuredSong.artist}` && (
                                           <div className="flex items-center gap-0.5 ml-1">
                                             <span className="w-1 h-2.5 bg-emerald-400 rounded-full animate-bounce"></span>
                                             <span className="w-1 h-3.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
@@ -1174,16 +1175,17 @@ export const TitleDetailPage: React.FC = () => {
                                         onClick={() =>
                                           handleTogglePlaySong(
                                             ep.featuredSong!.songName,
+                                            ep.featuredSong!.artist,
                                             ep.featuredSong!.previewUrl
                                           )
                                         }
                                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                                          activePlayingSong === ep.featuredSong.songName
+                                          activePlayingSong === `${ep.featuredSong.songName}::${ep.featuredSong.artist}`
                                             ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
                                             : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-slate-700'
                                         }`}
                                       >
-                                        {activePlayingSong === ep.featuredSong.songName ? (
+                                        {activePlayingSong === `${ep.featuredSong.songName}::${ep.featuredSong.artist}` ? (
                                           <>
                                             <Pause className="w-3 h-3 fill-current" />
                                             <span>Pause</span>
@@ -1344,7 +1346,8 @@ export const TitleDetailPage: React.FC = () => {
               <div className="space-y-2">
                 {(showAllSoundtracks ? uniqueSoundtracks : uniqueSoundtracks.slice(0, 6)).map(
                   (track, idx) => {
-                    const isPlaying = activePlayingSong === track.songName;
+                    const trackKey = `${track.songName}::${track.artist}`;
+                    const isPlaying = activePlayingSong === trackKey;
                     return (
                       <div
                         key={idx}
@@ -1378,7 +1381,7 @@ export const TitleDetailPage: React.FC = () => {
                             {track.previewUrl && (
                               <button
                                 type="button"
-                                onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                                onClick={() => handleTogglePlaySong(track.songName, track.artist, track.previewUrl)}
                                 className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity cursor-pointer ${
                                   isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                 }`}
@@ -1432,7 +1435,7 @@ export const TitleDetailPage: React.FC = () => {
                           {track.previewUrl ? (
                             <button
                               type="button"
-                              onClick={() => handleTogglePlaySong(track.songName, track.previewUrl)}
+                              onClick={() => handleTogglePlaySong(track.songName, track.artist, track.previewUrl)}
                               className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
                                 isPlaying
                                   ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/25'
