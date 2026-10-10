@@ -44,8 +44,9 @@ export const GroupSessionPage: React.FC = () => {
   const [newMaxRuntime, setNewMaxRuntime] = useState<number>(140);
   const [creating, setCreating] = useState(false);
 
-  // Voting state
+  // Voting state (personal votes map & room-wide allVotes array)
   const [votedMap, setVotedMap] = useState<Record<string, 'yes' | 'no'>>({});
+  const [allVotes, setAllVotes] = useState<any[]>([]);
 
   // Add show / movie modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -62,13 +63,13 @@ export const GroupSessionPage: React.FC = () => {
     }
   }, [initialCode, isAuthenticated]);
 
-  // Real-time live polling synchronization across all participants (every 3 seconds)
+  // Real-time live polling synchronization across all participants (every 2.5 seconds)
   useEffect(() => {
     if (!activeSession || activeSession.status !== 'open') return;
 
     const interval = setInterval(() => {
       loadSessionByCode(activeSession.joinCode, true);
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [activeSession?.joinCode, activeSession?.status, isAuthenticated, user?._id]);
@@ -96,13 +97,19 @@ export const GroupSessionPage: React.FC = () => {
 
       if (data?.session) {
         setActiveSession(data.session);
+
+        if (data.votes) {
+          setAllVotes(data.votes);
+        }
+
         // Map user's existing votes
         if (user && data.votes) {
           const myVotes: Record<string, 'yes' | 'no'> = {};
           data.votes.forEach((v: any) => {
-            const vUserId = v.user?._id || v.user;
+            const vUserId = (v.user?._id || v.user)?.toString();
             if (vUserId === user._id) {
-              myVotes[v.title.toString()] = v.reaction;
+              const tId = (v.title?._id || v.title)?.toString();
+              myVotes[tId] = v.reaction;
             }
           });
           setVotedMap(myVotes);
@@ -159,9 +166,39 @@ export const GroupSessionPage: React.FC = () => {
       return;
     }
 
+    const tIdStr = titleId.toString();
+
+    // Optimistically update personal vote
+    setVotedMap((prev) => ({ ...prev, [tIdStr]: reaction }));
+
+    // Optimistically update room-wide allVotes
+    if (user) {
+      setAllVotes((prev) => {
+        const filtered = prev.filter(
+          (v) =>
+            !(
+              (v.user?._id || v.user)?.toString() === user._id &&
+              (v.title?._id || v.title)?.toString() === tIdStr
+            )
+        );
+        return [
+          ...filtered,
+          {
+            _id: `temp-${Date.now()}`,
+            session: activeSession._id,
+            title: tIdStr,
+            user: { _id: user._id, name: user.name, avatar: user.avatar },
+            reaction,
+            strength: 4,
+          },
+        ];
+      });
+    }
+
     try {
       await sessionService.submitVote(activeSession._id, titleId, reaction, 4);
-      setVotedMap((prev) => ({ ...prev, [titleId]: reaction }));
+      // Immediately trigger background sync
+      loadSessionByCode(activeSession.joinCode, true);
     } catch (err) {
       console.error('Failed to submit vote:', err);
     }
@@ -235,6 +272,9 @@ export const GroupSessionPage: React.FC = () => {
       });
       if (res?.session) {
         setActiveSession(res.session);
+        if (res.votes) {
+          setAllVotes(res.votes);
+        }
       }
     } catch (err: any) {
       console.error('Failed to add title to shortlist:', err);
@@ -438,11 +478,20 @@ export const GroupSessionPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {(activeSession.shortlist || []).map((title: any) => {
-              const myVote = votedMap[title._id?.toString() || title.tmdbId?.toString()];
+              const tKey = (title._id || title.tmdbId || '').toString();
+              const myVote = votedMap[tKey];
+
+              // Find all votes for this specific candidate
+              const titleVotes = allVotes.filter(
+                (v) => (v.title?._id || v.title)?.toString() === tKey
+              );
+              const yesVotes = titleVotes.filter((v) => v.reaction === 'yes');
+              const noVotes = titleVotes.filter((v) => v.reaction === 'no');
+              const totalParticipantsCount = Math.max(1, uniqueParticipants.length);
 
               return (
                 <div
-                  key={title._id || title.tmdbId}
+                  key={tKey}
                   className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden flex flex-col justify-between group hover:border-indigo-500/40 transition-all shadow-md"
                 >
                   <div>
@@ -463,7 +512,13 @@ export const GroupSessionPage: React.FC = () => {
                         <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
                           <span>{title.releaseYear}</span>
                           <span>•</span>
-                          <span>{title.runtimeMinutes ? `${title.runtimeMinutes}m` : title.type === 'tv' ? 'TV Series' : 'Movie'}</span>
+                          <span>
+                            {title.runtimeMinutes
+                              ? `${title.runtimeMinutes}m`
+                              : title.type === 'tv'
+                              ? 'TV Series'
+                              : 'Movie'}
+                          </span>
                           {title.voteAverage && (
                             <>
                               <span>•</span>
@@ -484,11 +539,97 @@ export const GroupSessionPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Voting Reactions Footer */}
+                  {/* Live Group Votes Indicator Bar */}
+                  {activeSession.status === 'open' && (
+                    <div className="px-4 py-2.5 bg-slate-950/70 border-t border-slate-800/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-2">
+                          {yesVotes.length > 0 ? (
+                            <span className="font-bold text-emerald-400 flex items-center gap-1">
+                              <ThumbsUp className="w-3 h-3" /> {yesVotes.length} Loved
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 font-medium">0 Loved</span>
+                          )}
+
+                          {noVotes.length > 0 && (
+                            <span className="text-slate-400 font-medium flex items-center gap-1">
+                              • <ThumbsDown className="w-3 h-3 text-red-400" /> {noVotes.length} Pass
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Avatars of participants who voted on this title */}
+                        {titleVotes.length > 0 ? (
+                          <div
+                            className="flex items-center -space-x-1.5"
+                            title={`${titleVotes.length} participant(s) voted`}
+                          >
+                            {yesVotes.map((v: any, vIdx: number) => {
+                              const u = v.user;
+                              const isMe = user && (u?._id || u) === user._id;
+                              const name = u?.name || (isMe ? user?.name : 'Participant');
+                              const avatar = u?.avatar || (isMe ? user?.avatar : null);
+                              return (
+                                <img
+                                  key={v._id || `yes-${vIdx}`}
+                                  src={
+                                    avatar ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                      name
+                                    )}&background=10b981&color=fff`
+                                  }
+                                  alt={name}
+                                  title={`${name}: Loved (Yes)`}
+                                  className="w-5 h-5 rounded-full border-2 border-emerald-500 object-cover ring-1 ring-slate-950"
+                                />
+                              );
+                            })}
+                            {noVotes.map((v: any, vIdx: number) => {
+                              const u = v.user;
+                              const isMe = user && (u?._id || u) === user._id;
+                              const name = u?.name || (isMe ? user?.name : 'Participant');
+                              const avatar = u?.avatar || (isMe ? user?.avatar : null);
+                              return (
+                                <img
+                                  key={v._id || `no-${vIdx}`}
+                                  src={
+                                    avatar ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                      name
+                                    )}&background=ef4444&color=fff`
+                                  }
+                                  alt={name}
+                                  title={`${name}: Pass (No)`}
+                                  className="w-5 h-5 rounded-full border-2 border-red-500 object-cover opacity-75 ring-1 ring-slate-950"
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-600 font-medium">Waiting for votes</span>
+                        )}
+                      </div>
+
+                      {/* Visual Live Compromise Progress Bar */}
+                      <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden flex">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                          style={{ width: `${(yesVotes.length / totalParticipantsCount) * 100}%` }}
+                        />
+                        <div
+                          className="h-full bg-red-500/80 transition-all duration-300"
+                          style={{ width: `${(noVotes.length / totalParticipantsCount) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Personal Voting Action Buttons Footer */}
                   {activeSession.status === 'open' && (
                     <div className="p-4 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
                       <button
-                        onClick={() => handleVote(title._id, 'yes')}
+                        onClick={() => handleVote(title._id || title.tmdbId, 'yes')}
                         className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           myVote === 'yes'
                             ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
@@ -500,7 +641,7 @@ export const GroupSessionPage: React.FC = () => {
                       </button>
 
                       <button
-                        onClick={() => handleVote(title._id, 'no')}
+                        onClick={() => handleVote(title._id || title.tmdbId, 'no')}
                         className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           myVote === 'no'
                             ? 'bg-red-500 text-white shadow-md shadow-red-500/30'
