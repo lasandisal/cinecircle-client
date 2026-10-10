@@ -257,6 +257,14 @@ export const GroupSessionPage: React.FC = () => {
       (activeSession.shortlist || []).map((t: any) => (t._id || t.tmdbId || '').toString())
     );
 
+    // Strict deduplication of participants by ID
+    const uniqueParticipants = (activeSession.participants || []).filter(
+      (p: any, index: number, self: any[]) => {
+        const pId = (p?._id || p?.email || p)?.toString();
+        return index === self.findIndex((t: any) => (t?._id || t?.email || t)?.toString() === pId);
+      }
+    );
+
     return (
       <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
         {/* Room Header Card */}
@@ -307,10 +315,10 @@ export const GroupSessionPage: React.FC = () => {
             <div className="flex items-center gap-3 overflow-x-auto pb-1">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
                 <Users className="w-4 h-4 text-indigo-400" /> Participants (
-                {(activeSession.participants || []).length}):
+                {uniqueParticipants.length}):
               </span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(activeSession.participants || []).map((p: any) => {
+                {uniqueParticipants.map((p: any) => {
                   const isRoomHost = activeSession.host?._id === p._id;
                   const isMe = user && user._id === p._id;
 
