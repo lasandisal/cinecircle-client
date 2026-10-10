@@ -33,8 +33,27 @@ export const sessionService = {
   /**
    * Join session by code
    */
-  async joinSession(joinCode: string): Promise<GroupSessionDetail> {
+  async joinSession(joinCode: string): Promise<{ session: GroupSessionDetail; votes?: any[] }> {
     const res = await api.post('/sessions/join', { joinCode });
+    return res.data.data;
+  },
+
+  /**
+   * Add a movie or show to session shortlist
+   */
+  async addTitleToShortlist(
+    sessionId: string,
+    data: { titleId?: string; tmdbId?: number; type?: 'film' | 'tv'; titleData?: any }
+  ): Promise<{ session: GroupSessionDetail; votes: any[] }> {
+    const res = await api.post(`/sessions/${sessionId}/shortlist`, data);
+    return res.data.data;
+  },
+
+  /**
+   * Remove a title from session shortlist
+   */
+  async removeTitleFromShortlist(sessionId: string, titleId: string): Promise<GroupSessionDetail> {
+    const res = await api.delete(`/sessions/${sessionId}/shortlist/${titleId}`);
     return res.data.data.session;
   },
 
