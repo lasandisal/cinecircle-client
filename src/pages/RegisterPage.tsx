@@ -141,7 +141,7 @@ export const RegisterPage: React.FC = () => {
       );
 
       if (registerUser.fulfilled.match(resultAction)) {
-        navigate(redirectPath, { replace: true });
+        navigate('/onboarding', { replace: true });
       }
     } catch {
       // Handled via Redux state

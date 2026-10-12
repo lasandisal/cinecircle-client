@@ -10,7 +10,8 @@ export interface User {
   avatar?: string;
   handle?: string;
   bio?: string;
-  tasteProfile?: string;
+  tasteProfile?: any;
+  onboarded?: boolean;
 }
 
 export interface UserStats {

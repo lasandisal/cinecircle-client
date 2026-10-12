@@ -46,8 +46,29 @@ export const userService = {
   /**
    * Update taste preferences
    */
-  async updateTasteProfile(data: { favoriteGenres?: string[]; exclusions?: string[] }): Promise<any> {
+  async updateTasteProfile(data: { favoriteGenres?: string[]; exclusions?: string[]; favoriteTitles?: string[] }): Promise<any> {
     const res = await api.put('/users/taste-profile', data);
     return res.data.data.tasteProfile;
+  },
+
+  /**
+   * Update subscribed streaming services
+   */
+  async updateSubscribedServices(services: string[]): Promise<string[]> {
+    const res = await api.put('/users/subscribed-services', { services });
+    return res.data.data.subscribedServices;
+  },
+
+  /**
+   * Complete First-Time Onboarding Wizard
+   */
+  async completeOnboarding(payload: {
+    favoriteGenres: string[];
+    favoriteTitles?: string[];
+    exclusions?: string[];
+    subscribedServices?: string[];
+  }): Promise<{ user: any; tasteProfile: any }> {
+    const res = await api.post('/users/onboarding', payload);
+    return res.data.data;
   },
 };

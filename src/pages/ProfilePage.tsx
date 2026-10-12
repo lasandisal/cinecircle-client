@@ -27,6 +27,7 @@ import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
 import { StreamingBadge } from '../components/common/StreamingBadge';
+import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
 import type { UserProfileData, CommunityPerson } from '../types';
 
 export const ProfilePage: React.FC = () => {
@@ -45,6 +46,7 @@ export const ProfilePage: React.FC = () => {
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFindPeopleOpen, setIsFindPeopleOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -893,13 +895,31 @@ export const ProfilePage: React.FC = () => {
 
         {/* TAB 4: TASTE MATRIX & COMPATIBILITY */}
         {activeTab === 'taste' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Favorite genres */}
-            <div className="p-6 rounded-3xl bg-slate-900/80 border border-slate-800/80 space-y-4">
-              <div className="flex items-center gap-2">
-                <Sparkle className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-bold text-white font-['Outfit']">Primary Cine Taste Preferences</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-base font-bold text-white font-['Outfit']">CineTaste Matrix & Algorithm Profile</h2>
+                <p className="text-xs text-slate-400">Baseline genres, exclusions, and subscribed streaming passes</p>
               </div>
+              {isSelf && (
+                <button
+                  type="button"
+                  onClick={() => setIsOnboardingOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Update Taste Profile</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Favorite genres */}
+              <div className="p-6 rounded-3xl bg-slate-900/80 border border-slate-800/80 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkle className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white font-['Outfit']">Primary Cine Taste Preferences</h3>
+                </div>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Genres weighted for AI compromise discovery and mutual circle recommendations.
               </p>
@@ -963,6 +983,7 @@ export const ProfilePage: React.FC = () => {
                   High overlap in subscription providers and low genre conflict with community circles.
                 </p>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -1209,6 +1230,20 @@ export const ProfilePage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. MODAL: TASTE PROFILE ONBOARDING WIZARD */}
+      {/* ========================================================================= */}
+      {isOnboardingOpen && (
+        <TasteOnboardingWizard
+          isOpen={isOnboardingOpen}
+          onClose={() => setIsOnboardingOpen(false)}
+          onComplete={() => {
+            setIsOnboardingOpen(false);
+            fetchProfileData();
+          }}
+        />
       )}
     </div>
   );

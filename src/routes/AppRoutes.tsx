@@ -10,6 +10,7 @@ import { ProfilePage } from '../pages/ProfilePage';
 import { CuratorDashboardPage } from '../pages/CuratorDashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
+import { OnboardingPage } from '../pages/OnboardingPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { GuestRoute } from './GuestRoute';
@@ -33,6 +34,14 @@ export const AppRoutes: React.FC = () => {
         />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="profile/:id" element={<ProfilePage />} />
+        <Route
+          path="onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="curator"
           element={
