@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Users, Star, UserPlus, Sparkles, CheckCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Bell, Users, UserPlus, Sparkles, CheckCheck, Loader2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAppSelector } from '../../hooks/useAppRedux';
+import { userService } from '../../services/user.service';
 
 export interface NotificationItem {
   id: string;
@@ -15,90 +17,67 @@ export interface NotificationItem {
   actionText?: string;
 }
 
-const STORAGE_KEY = 'cinecircle_read_notifications_v1';
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    type: 'circle',
-    actorName: 'EventSphere',
-    actorAvatar: 'https://ui-avatars.com/api/?name=Event+Sphere&background=9333ea&color=fff&size=200',
-    title: 'invited you to join a live watch circle: "EventSphere Summit Watch Party"',
-    detail: 'Room Code: #EVT2026 • 4 participants voting',
-    timestamp: '4m ago',
-    read: false,
-    actionUrl: '/group',
-    actionText: 'Join Room',
-  },
-  {
-    id: 'n2',
-    type: 'follow',
-    actorName: 'MishtiX Creations',
-    actorAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',
-    title: 'started following you. You share mutual animated sci-fi favorites!',
-    detail: '96% Cinematic Taste Compatibility',
-    timestamp: '28m ago',
-    read: false,
-    actionUrl: '/profile',
-    actionText: 'View Profile',
-  },
-  {
-    id: 'n3',
-    type: 'rating',
-    actorName: 'PulseFit',
-    actorAvatar: 'https://ui-avatars.com/api/?name=Pulse+Fit&background=0d9488&color=fff&size=200',
-    title: 'rated Dune: Part Two ★★★★★',
-    detail: '"Unreal sound design & raw energy."',
-    timestamp: '1h ago',
-    read: false,
-    actionUrl: '/watchlist',
-    actionText: 'View',
-  },
-  {
-    id: 'n4',
-    type: 'verdict',
-    actorName: 'CineCircle AI',
-    actorAvatar: '/logo.png',
-    title: 'Compromise verdict resolved in "Late Night Thriller"!',
-    detail: 'Winner: "Arrival" with 84% compromise score',
-    timestamp: '1d ago',
-    read: true,
-    actionUrl: '/title/arrival',
-    actionText: 'View Result',
-  },
-];
-
-const loadSavedNotifications = (): NotificationItem[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return INITIAL_NOTIFICATIONS;
-    const readIds = new Set<string>(JSON.parse(raw));
-    return INITIAL_NOTIFICATIONS.map((n) => ({
-      ...n,
-      read: n.read || readIds.has(n.id),
-    }));
-  } catch {
-    return INITIAL_NOTIFICATIONS;
-  }
-};
+const STORAGE_KEY = 'cinecircle_read_notifications_v2';
 
 export const NotificationsDropdown: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(loadSavedNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'circles'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Sync across tabs or storage updates
+  // Load real notifications from backend
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await userService.getNotifications();
+      let readIds = new Set<string>();
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) readIds = new Set(JSON.parse(raw));
+      } catch {
+        // fallback
+      }
+
+      const parsed: NotificationItem[] = (data || []).map((n: any) => ({
+        ...n,
+        read: n.read || readIds.has(n.id),
+      }));
+
+      setNotifications(parsed);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
-    const handleStorageChange = () => {
-      setNotifications(loadSavedNotifications());
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    try {
+      localStorage.removeItem('cinecircle_read_notifications_v1');
+    } catch {
+      // ignore
+    }
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    } else {
+      setNotifications([]);
+    }
+  }, [isAuthenticated, fetchNotifications]);
+
+  const unreadCount = isAuthenticated ? notifications.filter((n) => !n.read).length : 0;
 
   const persistReadIds = (readIds: string[]) => {
     try {
@@ -147,7 +126,12 @@ export const NotificationsDropdown: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       {/* Bell Trigger */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen && isAuthenticated) {
+            fetchNotifications();
+          }
+        }}
         title="Notifications"
         className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all relative active:scale-95 cursor-pointer ${
           isOpen
@@ -174,13 +158,14 @@ export const NotificationsDropdown: React.FC = () => {
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                   {unreadCount} new
                 </span>
-              ) : (
+              ) : isAuthenticated ? (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   All caught up
                 </span>
-              )}
+              ) : null}
             </div>
-            {unreadCount > 0 && (
+
+            {isAuthenticated && unreadCount > 0 && (
               <button
                 onClick={markAllRead}
                 className="text-[11px] text-slate-400 hover:text-indigo-400 font-medium flex items-center gap-1 transition-colors cursor-pointer"
@@ -191,119 +176,164 @@ export const NotificationsDropdown: React.FC = () => {
             )}
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-800/80 bg-slate-900/40 text-xs">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-slate-800 text-white font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All Activity
-            </button>
-            <button
-              onClick={() => setActiveTab('circles')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                activeTab === 'circles'
-                  ? 'bg-slate-800 text-white font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Watch Circles & Invites
-            </button>
-          </div>
-
-          {/* Notifications List */}
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-850/60 no-scrollbar">
-            {filteredNotifications.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-500">
-                No notifications in this tab.
+          {/* Guest State: Prompt to sign in */}
+          {!isAuthenticated ? (
+            <div className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto">
+                <Bell className="w-5 h-5" />
               </div>
-            ) : (
-              filteredNotifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => {
-                    markAsRead(n.id);
-                    if (n.actionUrl) {
-                      setIsOpen(false);
-                      navigate(n.actionUrl);
-                    }
-                  }}
-                  className={`p-3.5 flex gap-3 hover:bg-slate-900/60 transition-colors cursor-pointer ${
-                    !n.read ? 'bg-indigo-950/25 border-l-2 border-indigo-500' : ''
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-white font-['Outfit']">Sign In for Notifications</h4>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                  Join CineCircle to receive real watch circle invitations, friend follows, and group decisions.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setIsOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors border border-slate-700"
+                >
+                  Create Account
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-800/80 bg-slate-900/40 text-xs">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'all'
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {/* Avatar with icon badge */}
-                  <div className="relative shrink-0">
-                    <img
-                      src={n.actorAvatar}
-                      alt={n.actorName}
-                      className="w-10 h-10 rounded-full object-cover border border-slate-700"
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
-                      {n.type === 'circle' && <Users className="w-2.5 h-2.5 text-indigo-400" />}
-                      {n.type === 'follow' && <UserPlus className="w-2.5 h-2.5 text-emerald-400" />}
-                      {n.type === 'rating' && <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />}
-                      {n.type === 'verdict' && <Sparkles className="w-2.5 h-2.5 text-cyan-400" />}
-                    </div>
+                  All Activity
+                </button>
+                <button
+                  onClick={() => setActiveTab('circles')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'circles'
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Watch Circles & Invites
+                </button>
+              </div>
+
+              {/* Notifications List */}
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-850/60 no-scrollbar">
+                {loading ? (
+                  <div className="py-10 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                    <span>Loading real notifications...</span>
                   </div>
-
-                  {/* Body */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-xs text-slate-200 leading-snug">
-                      <strong className="text-white font-semibold hover:underline">
-                        {n.actorName}
-                      </strong>{' '}
-                      {n.title}
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="py-12 px-6 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 mx-auto">
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-300">No notifications yet</h4>
+                    <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                      When friends invite you to a watch circle or follow your profile, they will appear here.
                     </p>
+                  </div>
+                ) : (
+                  filteredNotifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        markAsRead(n.id);
+                        if (n.actionUrl) {
+                          setIsOpen(false);
+                          navigate(n.actionUrl);
+                        }
+                      }}
+                      className={`p-3.5 flex gap-3 hover:bg-slate-900/60 transition-colors cursor-pointer ${
+                        !n.read ? 'bg-indigo-950/25 border-l-2 border-indigo-500' : ''
+                      }`}
+                    >
+                      {/* Avatar with icon badge */}
+                      <div className="relative shrink-0">
+                        <img
+                          src={n.actorAvatar}
+                          alt={n.actorName}
+                          className="w-10 h-10 rounded-full object-cover border border-slate-700"
+                        />
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
+                          {n.type === 'circle' && <Users className="w-2.5 h-2.5 text-indigo-400" />}
+                          {n.type === 'follow' && <UserPlus className="w-2.5 h-2.5 text-emerald-400" />}
+                          {n.type === 'verdict' && <Sparkles className="w-2.5 h-2.5 text-cyan-400" />}
+                        </div>
+                      </div>
 
-                    {n.detail && (
-                      <p className="text-[11px] text-slate-400 font-medium italic">
-                        {n.detail}
-                      </p>
-                    )}
+                      {/* Body */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-xs text-slate-200 leading-snug">
+                          <strong className="text-white font-semibold hover:underline">
+                            {n.actorName}
+                          </strong>{' '}
+                          {n.title}
+                        </p>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] text-slate-500">{n.timestamp}</span>
+                        {n.detail && (
+                          <p className="text-[11px] text-slate-400 font-medium italic">
+                            {n.detail}
+                          </p>
+                        )}
 
-                      {n.actionText && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsRead(n.id);
-                            setIsOpen(false);
-                            if (n.actionUrl) {
-                              navigate(n.actionUrl);
-                            }
-                          }}
-                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer"
-                        >
-                          {n.actionText}
-                        </button>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-slate-500">{n.timestamp}</span>
+
+                          {n.actionText && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(n.id);
+                                setIsOpen(false);
+                                if (n.actionUrl) {
+                                  navigate(n.actionUrl);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer"
+                            >
+                              {n.actionText}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {!n.read && (
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 self-center shadow-sm shadow-indigo-500/50"></span>
                       )}
                     </div>
-                  </div>
+                  ))
+                )}
+              </div>
 
-                  {!n.read && (
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 self-center shadow-sm shadow-indigo-500/50"></span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-2.5 border-t border-slate-800/80 bg-slate-900/40 text-center">
-            <span className="text-[10px] text-slate-500">
-              CineCircle Live Social Notifications
-            </span>
-          </div>
+              {/* Footer */}
+              <div className="p-2.5 border-t border-slate-800/80 bg-slate-900/40 text-center">
+                <span className="text-[10px] text-slate-500">
+                  CineCircle Live Social Notifications
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 };
+
+export default NotificationsDropdown;

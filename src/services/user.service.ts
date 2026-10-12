@@ -71,4 +71,12 @@ export const userService = {
     const res = await api.post('/users/onboarding', payload);
     return res.data.data;
   },
+
+  /**
+   * Get real notifications for current user
+   */
+  async getNotifications(): Promise<any[]> {
+    const res = await api.get('/users/notifications');
+    return res.data.data.notifications || [];
+  },
 };
