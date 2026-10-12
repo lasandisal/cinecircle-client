@@ -466,6 +466,16 @@ export const ProfilePage: React.FC = () => {
               {profile.bio}
             </div>
 
+            {!isSelf && profile.stats.mutualWatchedCount !== undefined && (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Film className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  You and {profile.name} have watched {profile.stats.mutualWatchedCount} common{' '}
+                  {profile.stats.mutualWatchedCount === 1 ? 'title' : 'titles'}.
+                </span>
+              </div>
+            )}
+
             {/* INSTAGRAM HIGHLIGHTS: Subscribed Streaming Services */}
             {profile.subscribedServices && profile.subscribedServices.length > 0 && (
               <div className="pt-2 border-t border-slate-800/80">

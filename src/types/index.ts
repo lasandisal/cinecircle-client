@@ -21,6 +21,7 @@ export interface UserStats {
   followersCount: number;
   circlesCount: number;
   reviewsCount: number;
+  mutualWatchedCount?: number;
 }
 
 export interface UserProfileData {
@@ -33,6 +34,18 @@ export interface UserProfileData {
   bio: string;
   subscribedServices: string[];
   stats: UserStats;
+  mutualWatchedTitles?: Array<{
+    _id: string;
+    watchedAt?: string;
+    title: {
+      _id: string;
+      name: string;
+      posterUrl: string;
+      releaseYear?: number;
+      type: string;
+      voteAverage?: number;
+    };
+  }>;
   tasteProfile?: {
     favoriteGenres: string[];
     exclusions: string[];
