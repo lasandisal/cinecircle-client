@@ -890,7 +890,13 @@ export const TitleDetailPage: React.FC = () => {
                 ) : (
                   <Bookmark className="w-3.5 h-3.5 text-amber-400" />
                 )}
-                <span>{isInWatchlist ? 'Saved in Watchlist' : 'Save to Watchlist'}</span>
+                <span>
+                  {isInWatchlist
+                    ? isWatched
+                      ? 'In My List (watched)'
+                      : 'In My List'
+                    : 'Add to My List'}
+                </span>
               </button>
             </div>
           </div>

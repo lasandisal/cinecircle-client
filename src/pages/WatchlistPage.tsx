@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bookmark, Star, Check, Trash2, Clock, Film, Tv, Loader2, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../store';
-import { watchlistService, type WatchlistItem } from '../services/watchlist.service';
+import { watchlistService, type WatchlistItem, type WatchlistCounts } from '../services/watchlist.service';
 
 export const WatchlistPage: React.FC = () => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -13,6 +13,15 @@ export const WatchlistPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  /**
+   * Unfiltered totals, supplied by the server.
+   *
+   * These were previously derived from `items`, which is already filtered by
+   * the active pill - so picking "Watched" showed "Want to Watch (0)" and made
+   * "All" display the filtered count rather than the real total.
+   */
+  const [counts, setCounts] = useState<WatchlistCounts>({ total: 0, watched: 0, wantToWatch: 0 });
+
   const fetchWatchlist = async () => {
     if (!isAuthenticated) {
       setLoading(false);
@@ -21,13 +30,32 @@ export const WatchlistPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const data = await watchlistService.getWatchlist(filter === 'all' ? undefined : filter);
-      setItems(data);
+      const { items: list, counts: totals } = await watchlistService.getWatchlist(
+        filter === 'all' ? undefined : filter
+      );
+      setItems(list);
+      setCounts(totals);
     } catch (err) {
       console.error('Failed to load watchlist:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Keep the pill counts correct after ticking an item off, without waiting for
+   * a refetch (which would also reset the active filter's contents).
+   */
+  const adjustCounts = (wasWatched: boolean, nowWatched: boolean) => {
+    if (wasWatched === nowWatched) return;
+    setCounts((c) => {
+      const delta = nowWatched ? 1 : -1;
+      return {
+        watched: Math.max(0, c.watched + delta),
+        wantToWatch: Math.max(0, c.wantToWatch - delta),
+        total: c.total,
+      };
+    });
   };
 
   useEffect(() => {
@@ -38,6 +66,7 @@ export const WatchlistPage: React.FC = () => {
     try {
       setActionLoading(item._id);
       const updated = await watchlistService.markAsWatched(item._id, !item.watched);
+      adjustCounts(item.watched, updated.watched);
       setItems((prev) =>
         prev.map((i) => (i._id === item._id ? { ...i, watched: updated.watched, watchedAt: updated.watchedAt } : i))
       );
@@ -52,6 +81,8 @@ export const WatchlistPage: React.FC = () => {
     try {
       setActionLoading(item._id);
       const updated = await watchlistService.rateTitle(item._id, rating);
+      // Rating implies watched, so the counts can shift here too.
+      adjustCounts(item.watched, true);
       setItems((prev) =>
         prev.map((i) => (i._id === item._id ? { ...i, starRating: updated.starRating, watched: true } : i))
       );
@@ -67,6 +98,11 @@ export const WatchlistPage: React.FC = () => {
       setActionLoading(item._id);
       await watchlistService.removeFromWatchlist(item._id);
       setItems((prev) => prev.filter((i) => i._id !== item._id));
+      setCounts((c) => {
+        const watched = Math.max(0, c.watched - (item.watched ? 1 : 0));
+        const wantToWatch = Math.max(0, c.wantToWatch - (item.watched ? 0 : 1));
+        return { watched, wantToWatch, total: watched + wantToWatch };
+      });
     } catch (err) {
       console.error('Failed to remove item:', err);
     } finally {
@@ -109,8 +145,10 @@ export const WatchlistPage: React.FC = () => {
     );
   }
 
-  const watchedCount = items.filter((i) => i.watched).length;
-  const wantToWatchCount = items.filter((i) => !i.watched).length;
+  // Totals come from the server and are NOT affected by the active filter.
+  const watchedCount = counts.watched;
+  const wantToWatchCount = counts.wantToWatch;
+  const totalCount = counts.total;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -119,10 +157,11 @@ export const WatchlistPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-black text-white font-['Outfit'] flex items-center gap-3">
             <Bookmark className="w-8 h-8 text-amber-400" />
-            My Watchlist
+            My List
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            Real titles saved in your MongoDB taste library • {items.length} titles total
+            {totalCount} title{totalCount === 1 ? '' : 's'} saved •{' '}
+            {wantToWatchCount} to watch • {watchedCount} watched
           </p>
         </div>
 
@@ -136,7 +175,7 @@ export const WatchlistPage: React.FC = () => {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            All ({items.length})
+            All ({totalCount})
           </button>
           <button
             onClick={() => setFilter('want_to_watch')}
@@ -173,11 +212,31 @@ export const WatchlistPage: React.FC = () => {
             <Bookmark className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-white">Your watchlist is currently empty</h3>
+            {/* Distinguish "your whole list is empty" from "this filter is empty",
+                which are very different situations. */}
+            <h3 className="text-base font-bold text-white">
+              {filter === 'watched'
+                ? "You haven't marked anything as watched yet"
+                : filter === 'want_to_watch'
+                  ? 'Nothing on your Want to Watch list'
+                  : 'Your list is currently empty'}
+            </h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Explore trending movies and series in our catalogue and click "+ Watchlist" to save them here.
+              {filter === 'watched'
+                ? 'Tick an item as watched from the Want to Watch tab, or rate a title from its detail page, and it will move here.'
+                : filter === 'want_to_watch'
+                  ? 'Everything you have saved has been marked as watched. Switch to the Watched tab to see them.'
+                  : 'Explore trending movies and series in our catalogue and click "+ Watchlist" to save them here.'}
             </p>
           </div>
+          {filter !== 'all' && (
+            <button
+              onClick={() => setFilter('all')}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all"
+            >
+              Show all {totalCount}
+            </button>
+          )}
           <Link
             to="/"
             className="inline-flex items-center gap-2 py-2 px-5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all"

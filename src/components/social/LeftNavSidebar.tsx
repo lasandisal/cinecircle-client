@@ -105,7 +105,7 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
               <span className="block text-sm font-bold text-white">
                 {stats.loading ? '—' : stats.watchlistCount}
               </span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Saved</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">To Watch</span>
             </div>
             <div>
               <span className="block text-sm font-bold text-indigo-400">

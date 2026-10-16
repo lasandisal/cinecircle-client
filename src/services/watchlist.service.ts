@@ -11,13 +11,27 @@ export interface WatchlistItem {
   watchedAt?: string;
 }
 
+export interface WatchlistCounts {
+  total: number;
+  watched: number;
+  wantToWatch: number;
+}
+
 export const watchlistService = {
   /**
-   * Get user's saved watchlist
+   * Get the user's list, optionally filtered.
+   *
+   * `counts` is always the UNFILTERED totals so the filter pills never show a
+   * misleading number, while `items` respects the `status` filter.
    */
-  async getWatchlist(status?: 'all' | 'watched' | 'want_to_watch'): Promise<WatchlistItem[]> {
+  async getWatchlist(
+    status?: 'all' | 'watched' | 'want_to_watch'
+  ): Promise<{ items: WatchlistItem[]; counts: WatchlistCounts }> {
     const res = await api.get('/watchlist', { params: { status } });
-    return res.data.data.watchlist || [];
+    return {
+      items: res.data.data.watchlist || [],
+      counts: res.data.data.counts || { total: 0, watched: 0, wantToWatch: 0 },
+    };
   },
 
   /**
