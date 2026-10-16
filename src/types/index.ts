@@ -172,6 +172,10 @@ export interface TitleComment {
   poll?: CommentPoll;
   replies?: TitleComment[];
   containsSpoilers?: boolean;
+  /** How many members have flagged this comment for moderation. */
+  reportCount?: number;
+  /** Whether the signed-in viewer already reported it (disables the button). */
+  reportedByMe?: boolean;
   createdAt: string;
 }
 

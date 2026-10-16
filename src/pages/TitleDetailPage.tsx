@@ -219,6 +219,8 @@ export const TitleDetailPage: React.FC = () => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
   const [addSongQuery, setAddSongQuery] = useState('');
   const [addSongSearching, setAddSongSearching] = useState(false);
+  const [addSongSearched, setAddSongSearched] = useState(false);
+  const [addSongError, setAddSongError] = useState<string | null>(null);
   const [addSongResults, setAddSongResults] = useState<any[]>([]);
   const [selectedAddSong, setSelectedAddSong] = useState<any | null>(null);
   const [addSongSceneRef, setAddSongSceneRef] = useState('');
@@ -228,14 +230,24 @@ export const TitleDetailPage: React.FC = () => {
   const handleSearchMusic = async (q: string) => {
     if (!q.trim()) {
       setAddSongResults([]);
+      setAddSongError(null);
+      setAddSongSearched(false);
       return;
     }
     setAddSongSearching(true);
+    setAddSongError(null);
     try {
-      const results = await titleService.searchMusic(q.trim());
+      const results = await titleService.searchMusic(q.trim(), title?.name);
       setAddSongResults(results || []);
-    } catch (err) {
+      setAddSongSearched(true);
+    } catch (err: any) {
       console.error('Failed to search music:', err);
+      setAddSongResults([]);
+      setAddSongSearched(true);
+      setAddSongError(
+        err?.response?.data?.error ||
+          'Could not reach Apple Music right now. Please try again.'
+      );
     } finally {
       setAddSongSearching(false);
     }
@@ -272,6 +284,8 @@ export const TitleDetailPage: React.FC = () => {
           setAddSongResults([]);
           setAddSongSceneRef('');
           setAddSongSuccess(null);
+          setAddSongError(null);
+          setAddSongSearched(false);
         }, 1500);
       }
     } catch (err) {
@@ -321,11 +335,19 @@ export const TitleDetailPage: React.FC = () => {
     setExpandedEpisode(null);
 
     const activeSeason = title?.seasons?.find((s) => s.seasonNumber === seasonNum);
+    const seasonEpisodes = activeSeason?.episodes || [];
+    // Mirrors the backend's completeness check: anything unpopulated, any
+    // "Episode N" placeholder name, or a gap in numbering means the real TMDB
+    // episode list has not been loaded yet.
+    const episodeNumbers = seasonEpisodes.map((e) => e.episodeNumber).sort((a, b) => a - b);
+    const hasGaps = episodeNumbers.some((n, idx) => n !== idx + 1);
     const hasGeneric =
       !activeSeason ||
-      !activeSeason.episodes ||
-      activeSeason.episodes.length === 0 ||
-      activeSeason.episodes.some((e) => !e.stillUrl && e.name.match(/^Episode \d+$/i));
+      seasonEpisodes.length === 0 ||
+      hasGaps ||
+      seasonEpisodes.some(
+        (e) => !e.name || /^episode\s*\d*$/i.test(e.name.trim()) || !e.summary?.trim()
+      );
 
     if (hasGeneric && (title?._id || id)) {
       setLoadingSeasonEpisodes(true);
@@ -365,6 +387,44 @@ export const TitleDetailPage: React.FC = () => {
 
   // Reaction picker hover state (commentId -> boolean)
   const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
+
+  // Comment reporting for curator moderation
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  const [reportedCommentIds, setReportedCommentIds] = useState<string[]>([]);
+  const [reportNotice, setReportNotice] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const handleReportComment = async (commentId: string) => {
+    if (!requireAuth()) return;
+    setReportingCommentId(commentId);
+    setReportNotice(null);
+    try {
+      await titleService.reportComment(commentId);
+      setReportedCommentIds((prev) => [...prev, commentId]);
+      setTitle((prev) =>
+        prev
+          ? {
+              ...prev,
+              comments: (prev.comments || []).map((c) =>
+                c._id === commentId
+                  ? { ...c, reportedByMe: true, reportCount: (c.reportCount || 0) + 1 }
+                  : c
+              ),
+            }
+          : prev
+      );
+      setReportNotice({ text: 'Thanks — a curator will review this comment.', ok: true });
+    } catch (err: any) {
+      setReportNotice({
+        text:
+          err?.response?.data?.error ||
+          'Could not report this comment. Please try again.',
+        ok: false,
+      });
+    } finally {
+      setReportingCommentId(null);
+      setTimeout(() => setReportNotice(null), 4000);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -638,6 +698,8 @@ export const TitleDetailPage: React.FC = () => {
   }
 
   const activeSeasonData = title.seasons?.find((s) => s.seasonNumber === selectedSeason);
+  // Defensive: a season document can legitimately carry no episodes array yet.
+  const seasonEpisodeList = activeSeasonData?.episodes || [];
 
   return (
     <div className="max-w-6xl mx-auto pb-16 space-y-8 animate-in fade-in duration-300">
@@ -1024,11 +1086,11 @@ export const TitleDetailPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs text-slate-400 font-semibold px-1">
                     <span>Season {activeSeasonData.seasonNumber}</span>
-                    <span>{activeSeasonData.episodes.length} Episodes • Click episode to expand summary</span>
+                    <span>{seasonEpisodeList.length} Episodes • Click episode to expand summary</span>
                   </div>
 
                   <div className="space-y-2.5">
-                    {activeSeasonData.episodes.map((ep) => {
+                    {seasonEpisodeList.map((ep) => {
                       const isExpanded = expandedEpisode === ep.episodeNumber;
                       return (
                         <div
@@ -1121,8 +1183,8 @@ export const TitleDetailPage: React.FC = () => {
                                     {ep.summary && ep.summary.trim().length > 0 ? (
                                       ep.summary
                                     ) : (
-                                      <span className="text-slate-400 italic">
-                                        In this {ep.runtimeMinutes || 45}-minute installment of {title?.name || 'this series'}, central character dynamics and storylines deepen as key events unfold.
+                                      <span className="text-slate-500 italic">
+                                        No episode synopsis has been published for this episode yet.
                                       </span>
                                     )}
                                   </p>
@@ -1546,6 +1608,8 @@ export const TitleDetailPage: React.FC = () => {
                       setAddSongQuery('');
                       setAddSongResults([]);
                       setAddSongSuccess(null);
+                      setAddSongError(null);
+                      setAddSongSearched(false);
                     }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
                   >
@@ -1568,7 +1632,12 @@ export const TitleDetailPage: React.FC = () => {
                       <input
                         type="text"
                         value={addSongQuery}
-                        onChange={(e) => setAddSongQuery(e.target.value)}
+                        onChange={(e) => {
+                          setAddSongQuery(e.target.value);
+                          // Clear stale result/error messaging while retyping.
+                          setAddSongSearched(false);
+                          setAddSongError(null);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -1589,6 +1658,22 @@ export const TitleDetailPage: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Search failure feedback */}
+                  {addSongError && (
+                    <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-medium flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <span>{addSongError}</span>
+                    </div>
+                  )}
+
+                  {/* Completed search with no matches */}
+                  {!addSongSearching && !addSongError && addSongSearched && addSongResults.length === 0 && (
+                    <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-xs">
+                      No Apple Music tracks matched &ldquo;{addSongQuery}&rdquo;. Try a different
+                      spelling, or search by the artist instead.
+                    </div>
+                  )}
+
                   {/* Search Results */}
                   {addSongResults.length > 0 && (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -1599,9 +1684,13 @@ export const TitleDetailPage: React.FC = () => {
                         const isSelected =
                           selectedAddSong?.songName === song.songName &&
                           selectedAddSong?.artist === song.artist;
+                        // Must match handleTogglePlaySong's key, which is
+                        // "songName::artist" - comparing against songName alone
+                        // meant the play/pause icon never toggled.
+                        const trackKey = `${(song.songName || '').trim()}::${(song.artist || '').trim()}`;
                         return (
                           <div
-                            key={i}
+                            key={`${trackKey}-${i}`}
                             onClick={() => setSelectedAddSong(song)}
                             className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                               isSelected
@@ -1635,11 +1724,14 @@ export const TitleDetailPage: React.FC = () => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleTogglePlaySong(song.songName, song.previewUrl);
+                                    // Correct argument order: (songName, artist, previewUrl).
+                                    // The preview URL used to be passed as `artist`,
+                                    // so no audio ever played from search results.
+                                    handleTogglePlaySong(song.songName, song.artist, song.previewUrl);
                                   }}
                                   className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800"
                                 >
-                                  {activePlayingSong === song.songName ? (
+                                  {activePlayingSong === trackKey ? (
                                     <Pause className="w-3 h-3 fill-current" />
                                   ) : (
                                     <Play className="w-3 h-3 fill-current ml-0.5" />
@@ -2059,7 +2151,42 @@ export const TitleDetailPage: React.FC = () => {
                             <CornerDownRight className="w-3.5 h-3.5 text-slate-400" />
                             <span>Reply</span>
                           </button>
+
+                          {/* Report for curator moderation */}
+                          {!(
+                            comment.reportedByMe ||
+                            reportedCommentIds.includes(comment._id) ||
+                            comment.user?._id === currentUser?._id
+                          ) && (
+                            <button
+                              type="button"
+                              onClick={() => handleReportComment(comment._id)}
+                              disabled={reportingCommentId === comment._id}
+                              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Report this comment to a curator"
+                            >
+                              {reportingCommentId === comment._id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              )}
+                              <span>Report</span>
+                            </button>
+                          )}
                         </div>
+
+                        {/* Report outcome feedback */}
+                        {reportNotice &&
+                          (reportedCommentIds.includes(comment._id) ||
+                            reportNotice.text?.includes('this comment')) && (
+                            <p
+                              className={`text-[10px] font-medium pt-1 ${
+                                reportNotice.ok ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {reportNotice.text}
+                            </p>
+                          )}
                       </div>
 
                       {/* Inline Reply Input Box */}

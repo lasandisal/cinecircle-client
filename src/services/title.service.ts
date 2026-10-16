@@ -118,6 +118,16 @@ export const titleService = {
   },
 
   /**
+   * Report a comment for curator moderation
+   */
+  async reportComment(commentId: string, reason?: string) {
+    const res = await api.post(`/titles/comments/${commentId}/report`, {
+      reason: reason?.trim() || undefined,
+    });
+    return res.data.data;
+  },
+
+  /**
    * Get comments for a title
    */
   async getComments(titleId: string) {
@@ -134,10 +144,14 @@ export const titleService = {
   },
 
   /**
-   * Search iTunes music directly for soundtrack suggestions
+ * Search Apple Music for soundtrack suggestions.
+   * `titleName` gives the backend context so it can rank the version that
+   * actually belongs to the film/series being viewed to the top.
    */
-  async searchMusic(query: string) {
-    const res = await api.get('/titles/music/search', { params: { q: query } });
+  async searchMusic(query: string, titleName?: string) {
+    const res = await api.get('/titles/music/search', {
+      params: { q: query, ...(titleName ? { titleName } : {}) },
+    });
     return res.data.data.tracks;
   },
 

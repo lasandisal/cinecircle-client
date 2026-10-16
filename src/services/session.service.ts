@@ -58,17 +58,34 @@ export const sessionService = {
   },
 
   /**
-   * Submit reaction vote
+   * Submit reaction vote.
+   * Returns the full vote list so callers can reconcile without polling.
    */
-  async submitVote(sessionId: string, titleId: string, reaction: 'yes' | 'no', strength = 3): Promise<void> {
-    await api.post(`/sessions/${sessionId}/vote`, { titleId, reaction, strength });
+  async submitVote(
+    sessionId: string,
+    titleId: string,
+    reaction: 'yes' | 'no',
+    strength = 3
+  ): Promise<{ vote: any; votes: any[] }> {
+    const res = await api.post(`/sessions/${sessionId}/vote`, { titleId, reaction, strength });
+    return res.data.data;
   },
 
   /**
-   * Lock winning pick
+   * Lock winning pick.
+   * Also returns the compromise scores and the AI pitch so the room does not
+   * have to fetch them separately.
    */
-  async lockSession(sessionId: string): Promise<GroupSessionDetail> {
+  async lockSession(
+    sessionId: string
+  ): Promise<{
+    session: GroupSessionDetail;
+    winnerId?: string;
+    scores: { titleId: string; score: number; yesCount: number; noCount: number }[];
+    aiPitch?: string;
+    aiPitchGenerated: boolean;
+  }> {
     const res = await api.post(`/sessions/${sessionId}/lock`);
-    return res.data.data.session;
+    return res.data.data;
   },
 };

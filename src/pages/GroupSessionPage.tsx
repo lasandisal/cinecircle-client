@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAppSelector } from '../store';
 import { sessionService, type GroupSessionDetail } from '../services/session.service';
+import { socketService } from '../services/socket';
 import { titleService } from '../services/title.service';
 import type { Title } from '../types';
 
@@ -47,6 +48,8 @@ export const GroupSessionPage: React.FC = () => {
   // Voting state (personal votes map & room-wide allVotes array)
   const [votedMap, setVotedMap] = useState<Record<string, 'yes' | 'no'>>({});
   const [allVotes, setAllVotes] = useState<any[]>([]);
+  // How strongly this member feels about their vote (1 = mild, 5 = strong).
+  const [voteStrength, setVoteStrength] = useState(4);
 
   // Add show / movie modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -56,6 +59,15 @@ export const GroupSessionPage: React.FC = () => {
   const [addingTitleId, setAddingTitleId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<any>(null);
 
+  // Real-time transport + final decision payload
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [aiPitch, setAiPitch] = useState<string | null>(null);
+  const [aiPitchGenerated, setAiPitchGenerated] = useState(false);
+  const [compromiseScores, setCompromiseScores] = useState<
+    { titleId: string; score: number; yesCount: number; noCount: number }[]
+  >([]);
+  const joinedRoomIdRef = useRef<string | null>(null);
+
   // Load / join session on mount or code change
   useEffect(() => {
     if (initialCode) {
@@ -63,16 +75,95 @@ export const GroupSessionPage: React.FC = () => {
     }
   }, [initialCode, isAuthenticated]);
 
-  // Real-time live polling synchronization across all participants (every 2.5 seconds)
+  /**
+   * Real-time synchronisation.
+   *
+   * Votes and the final pick are pushed over Socket.IO as they happen. The
+   * previous implementation polled the *write* endpoint (POST /sessions/join)
+   * every 2.5 seconds, which meant a database write per participant per tick.
+   */
   useEffect(() => {
-    if (!activeSession || activeSession.status !== 'open') return;
+    if (!isAuthenticated || !activeSession || activeSession.status !== 'open') return;
 
-    const interval = setInterval(() => {
-      loadSessionByCode(activeSession.joinCode, true);
-    }, 2500);
+    let cancelled = false;
+    const roomSessionId = activeSession._id;
 
-    return () => clearInterval(interval);
-  }, [activeSession?.joinCode, activeSession?.status, isAuthenticated, user?._id]);
+    const attach = async () => {
+      const connected = await socketService.whenConnected();
+      if (cancelled) return;
+      setRealtimeConnected(connected);
+      if (!connected) return;
+
+      // Join the room so we receive broadcasts for this session.
+      const ack = await socketService.joinSession(activeSession.joinCode);
+      if (cancelled) return;
+      if (ack.ok && ack.sessionId) {
+        joinedRoomIdRef.current = ack.sessionId;
+        if (ack.votes) setAllVotes(ack.votes);
+      }
+
+      socketService.onVoteUpdated((payload) => {
+        if (payload.sessionId !== roomSessionId) return;
+        setAllVotes(payload.votes || []);
+        syncMyVotes(payload.votes || []);
+      });
+
+      socketService.onParticipantJoined(() => {
+        // Someone joined - refresh the participant list (cheap, once per event).
+        loadSessionByCode(activeSession.joinCode, true);
+      });
+
+      socketService.onSessionFinalized((payload) => {
+        if (payload?.session?._id !== roomSessionId) return;
+        applyFinalizedPayload(payload);
+      });
+
+      socketService.onSessionError((payload) => {
+        if (!payload?.error) return;
+        setError(payload.error);
+        setTimeout(() => setError(null), 5000);
+      });
+    };
+
+    attach();
+
+    return () => {
+      cancelled = true;
+      if (joinedRoomIdRef.current) {
+        socketService.leaveSession(joinedRoomIdRef.current);
+        joinedRoomIdRef.current = null;
+      }
+      socketService.disconnect();
+      setRealtimeConnected(false);
+    };
+  }, [activeSession?._id, activeSession?.status, activeSession?.joinCode, isAuthenticated]);
+
+  const syncMyVotes = (votes: any[]) => {
+    if (!user) return;
+    const myVotes: Record<string, 'yes' | 'no'> = {};
+    votes.forEach((v: any) => {
+      const vUserId = (v.user?._id || v.user)?.toString();
+      if (vUserId === user._id) {
+        const tId = (v.title?._id || v.title)?.toString();
+        myVotes[tId] = v.reaction;
+      }
+    });
+    setVotedMap(myVotes);
+  };
+
+  const applyFinalizedPayload = (payload: any) => {
+    if (payload?.session) setActiveSession(payload.session as GroupSessionDetail);
+    if (payload?.winnerId !== undefined) {
+      setActiveSession((prev) =>
+        prev ? ({ ...prev, finalPick: payload.winnerId } as GroupSessionDetail) : prev
+      );
+    }
+    if (Array.isArray(payload?.scores)) setCompromiseScores(payload.scores);
+    if (payload?.aiPitch) {
+      setAiPitch(payload.aiPitch);
+      setAiPitchGenerated(!!payload.aiPitchGenerated);
+    }
+  };
 
   const loadSessionByCode = async (code: string, isSilent = false) => {
     if (!isSilent) {
@@ -84,7 +175,7 @@ export const GroupSessionPage: React.FC = () => {
       const cleanCode = code.toUpperCase().trim();
       let data: { session: GroupSessionDetail; votes?: any[] };
 
-      // If user is authenticated, join the session so their avatar & participant profile are saved in MongoDB!
+      // Joining persists the participant; guests fall back to a public read.
       if (isAuthenticated) {
         try {
           data = await sessionService.joinSession(cleanCode);
@@ -100,19 +191,7 @@ export const GroupSessionPage: React.FC = () => {
 
         if (data.votes) {
           setAllVotes(data.votes);
-        }
-
-        // Map user's existing votes
-        if (user && data.votes) {
-          const myVotes: Record<string, 'yes' | 'no'> = {};
-          data.votes.forEach((v: any) => {
-            const vUserId = (v.user?._id || v.user)?.toString();
-            if (vUserId === user._id) {
-              const tId = (v.title?._id || v.title)?.toString();
-              myVotes[tId] = v.reaction;
-            }
-          });
-          setVotedMap(myVotes);
+          syncMyVotes(data.votes);
         }
       }
     } catch (err: any) {
@@ -189,18 +268,46 @@ export const GroupSessionPage: React.FC = () => {
             title: tIdStr,
             user: { _id: user._id, name: user.name, avatar: user.avatar },
             reaction,
-            strength: 4,
+            strength: voteStrength,
           },
         ];
       });
     }
 
     try {
-      await sessionService.submitVote(activeSession._id, titleId, reaction, 4);
-      // Immediately trigger background sync
-      loadSessionByCode(activeSession.joinCode, true);
-    } catch (err) {
+      // Prefer the socket; fall back to REST if it is not connected. Both paths
+      // run the same server-side validation and both broadcast to the room.
+      let acked = false;
+      if (realtimeConnected) {
+        const result = await socketService.castVote(
+          activeSession._id,
+          tIdStr,
+          reaction,
+          voteStrength
+        );
+        if (result.ok) {
+          acked = true;
+        } else if (result.error) {
+          setError(result.error);
+          setTimeout(() => setError(null), 5000);
+        }
+      }
+
+      if (!acked) {
+        const { votes } = await sessionService.submitVote(
+          activeSession._id,
+          tIdStr,
+          reaction,
+          voteStrength
+        );
+        if (votes) setAllVotes(votes);
+      }
+    } catch (err: any) {
       console.error('Failed to submit vote:', err);
+      setError(err?.response?.data?.error || 'Could not record your vote.');
+      setTimeout(() => setError(null), 5000);
+      // Roll the optimistic vote back.
+      loadSessionByCode(activeSession.joinCode, true);
     }
   };
 
@@ -208,8 +315,9 @@ export const GroupSessionPage: React.FC = () => {
     if (!activeSession) return;
     setLoading(true);
     try {
-      const finalized = await sessionService.lockSession(activeSession._id);
-      setActiveSession(finalized);
+      const result = await sessionService.lockSession(activeSession._id);
+      applyFinalizedPayload(result);
+      setActiveSession(result.session as GroupSessionDetail);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Could not finalize session.');
     } finally {
@@ -357,6 +465,21 @@ export const GroupSessionPage: React.FC = () => {
                 <Users className="w-4 h-4 text-indigo-400" /> Participants (
                 {uniqueParticipants.length}):
               </span>
+              {/* Honest connection indicator: reflects the real socket state. */}
+              <span
+                className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${
+                  realtimeConnected
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+                title={
+                  realtimeConnected
+                    ? 'Live updates are streaming over Socket.IO'
+                    : 'Live updates unavailable - falling back to manual refresh'
+                }
+              >
+                {realtimeConnected ? 'LIVE' : 'OFFLINE'}
+              </span>
               <div className="flex items-center gap-2 flex-wrap">
                 {uniqueParticipants.map((p: any) => {
                   const isRoomHost = activeSession.host?._id === p._id;
@@ -432,6 +555,70 @@ export const GroupSessionPage: React.FC = () => {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
+
+                {/* Genuine AI compromise pitch, generated by Gemini on lock.
+                    Previously this label was backed by a fixed English string
+                    in social.service.ts. */}
+                {aiPitch && (
+                  <div className="mt-3 p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400 mb-1 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3" />
+                      AI Compromise Verdict
+                      {/* Honest provenance: only claim Gemini wrote it if it did. */}
+                      <span
+                        className={`text-[9px] font-bold normal-case ${
+                          aiPitchGenerated ? 'text-emerald-400/80' : 'text-slate-500'
+                        }`}
+                      >
+                        {aiPitchGenerated ? 'generated by Gemini' : 'standard template (AI unavailable)'}
+                      </span>
+                    </p>
+                    <p className="text-xs text-cyan-100/90 leading-relaxed italic">
+                      &ldquo;{aiPitch}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                {/* Compromise score breakdown: the actual per-title scores. */}
+                {compromiseScores.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Compromise scores (Σ strength ÷ participants)
+                    </p>
+                    <div className="space-y-1">
+                      {compromiseScores
+                        .slice()
+                        .sort((a, b) => b.score - a.score)
+                        .map((s) => {
+                          const entry = (activeSession.shortlist || []).find(
+                            (t: any) => (t._id || t).toString() === s.titleId
+                          );
+                          return (
+                            <div
+                              key={s.titleId}
+                              className="flex items-center justify-between text-[11px]"
+                            >
+                              <span className="text-slate-300 truncate">
+                                {entry?.name || s.titleId}
+                              </span>
+                              <span
+                                className={`font-bold shrink-0 ml-2 ${
+                                  s.score > 0
+                                    ? 'text-emerald-400'
+                                    : s.score < 0
+                                      ? 'text-rose-400'
+                                      : 'text-slate-500'
+                                }`}
+                              >
+                                {s.score > 0 ? '+' : ''}
+                                {s.score}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -475,6 +662,36 @@ export const GroupSessionPage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Vote intensity control - feeds the weighted compromise formula */}
+          {isAuthenticated && activeSession.status === 'open' && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+              <span className="text-[11px] font-bold text-slate-400 shrink-0">
+                How strongly do you feel?
+              </span>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setVoteStrength(n)}
+                    title={['Mild', 'Somewhat', 'Moderate', 'Strong', 'Absolute'][n - 1]}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      voteStrength >= n
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-slate-950 text-slate-500 border-slate-800 hover:border-slate-600'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] text-slate-500">
+                {['Mild', 'Somewhat', 'Moderate', 'Strong', 'Absolute'][voteStrength - 1]} — each
+                vote counts {voteStrength} towards the compromise score
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {(activeSession.shortlist || []).map((title: any) => {
