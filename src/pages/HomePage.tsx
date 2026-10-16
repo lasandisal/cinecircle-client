@@ -10,18 +10,24 @@ import { RightSocialSidebar } from '../components/social/RightSocialSidebar';
 import { socialService } from '../services/social.service';
 import { Loader2, RefreshCw } from 'lucide-react';
 
+type FeedTab = 'for-you' | 'following' | 'trending';
+
 export const HomePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'for-you' | 'following' | 'trending'>('for-you');
+  const [activeTab, setActiveTab] = useState<FeedTab>('for-you');
   const [posts, setPosts] = useState<FeedPostProps[]>([]);
   const [featuredPoll, setFeaturedPoll] = useState<GroupPollProps | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  // Only the "following" tab has a server-side filter; the other two are the
+  // same global feed and are ranked differently on the client.
+  const feedFilter = activeTab === 'following' ? 'following' : 'all';
+
   const loadData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
       const [feedPosts, activeSessionsData] = await Promise.all([
-        socialService.getFeed(1, 15),
+        socialService.getFeed(1, 15, feedFilter),
         socialService.getActiveSessions(),
       ]);
       setPosts(feedPosts);
@@ -38,7 +44,17 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [feedFilter]);
+
+  // "Trending" is a different ordering of the same global feed (most-engaged
+  // first). It was previously the identical array under a different tab colour.
+  const visiblePosts =
+    activeTab === 'trending'
+      ? [...posts].sort(
+          (a, b) =>
+            (b.likesCount ?? 0) + (b.commentsCount ?? 0) - ((a.likesCount ?? 0) + (a.commentsCount ?? 0))
+        )
+      : posts;
 
   return (
     <div className="flex gap-8">
@@ -116,10 +132,21 @@ export const HomePage: React.FC = () => {
 
               {/* User Review Activity Cards from MongoDB */}
               {posts.length > 0 ? (
-                posts.map((post) => <SocialFeedPost key={post.id} post={post} />)
+                visiblePosts.map((post) => <SocialFeedPost key={post.id} post={post} />)
               ) : (
-                <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/30 border border-slate-800/80 rounded-2xl">
-                  No community reviews yet. Visit a title to write the first review!
+                <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/30 border border-slate-800/80 rounded-2xl space-y-2">
+                  {activeTab === 'following' ? (
+                    <>
+                      <p className="font-semibold text-slate-400">
+                        Nothing from the people you follow yet.
+                      </p>
+                      <p className="text-xs">
+                        Follow members from the sidebar and their reviews will show up here.
+                      </p>
+                    </>
+                  ) : (
+                    <p>No community reviews yet. Visit a title to write the first review!</p>
+                  )}
                 </div>
               )}
             </>

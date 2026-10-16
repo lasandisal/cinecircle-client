@@ -9,6 +9,7 @@ import { userService } from '../../services/user.service';
 
 export const RightSocialSidebar: React.FC = () => {
   const [following, setFollowing] = useState<Record<string, boolean>>({});
+  const [pendingFollow, setPendingFollow] = useState<string | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [trendingTitles, setTrendingTitles] = useState<Title[]>([]);
   const [tasteMatches, setTasteMatches] = useState<UserSuggestion[]>([]);
@@ -29,12 +30,20 @@ export const RightSocialSidebar: React.FC = () => {
     fetchSidebarData();
   }, []);
 
-  const toggleFollow = async (userId: string, handle: string) => {
+  // Keyed by user id, not handle. Handles are optional and derived from the
+  // email, so two members could collide on the same key.
+  const toggleFollow = async (userId: string) => {
+    if (pendingFollow) return;
+    setPendingFollow(userId);
     try {
       const res = await userService.toggleFollow(userId);
-      setFollowing((prev) => ({ ...prev, [handle]: res.following }));
-    } catch {
-      setFollowing((prev) => ({ ...prev, [handle]: !prev[handle] }));
+      setFollowing((prev) => ({ ...prev, [userId]: res.following }));
+    } catch (err) {
+      // Do not optimistically flip the button on failure - a failed request
+      // previously turned the button green as if the follow had succeeded.
+      console.error('Failed to update follow:', err);
+    } finally {
+      setPendingFollow(null);
     }
   };
 
@@ -84,7 +93,7 @@ export const RightSocialSidebar: React.FC = () => {
 
         <div className="space-y-3">
           {tasteMatches.map((user) => (
-            <div key={user.handle} className="flex items-center justify-between gap-3">
+            <div key={user.id} className="flex items-center justify-between gap-3">
               <Link to={`/profile/${user.id}`} className="flex items-center gap-2.5 min-w-0 group">
                 <img
                   src={user.avatar}
@@ -123,14 +132,15 @@ export const RightSocialSidebar: React.FC = () => {
               </Link>
 
               <button
-                onClick={() => toggleFollow(user.id, user.handle)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
-                  following[user.handle]
+                onClick={() => toggleFollow(user.id)}
+                disabled={pendingFollow === user.id}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all disabled:opacity-50 ${
+                  following[user.id]
                     ? 'bg-slate-800 text-slate-300 border border-slate-700'
                     : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30'
                 }`}
               >
-                {following[user.handle] ? (
+                {following[user.id] ? (
                   <>
                     <Check className="w-3 h-3 text-emerald-400" />
                     <span>Followed</span>

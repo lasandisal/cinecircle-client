@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { UserProfileData, CommunityPerson } from '../types';
+import type { UserProfileData, CommunityPerson, ConnectionGraph } from '../types';
 
 export interface UpdateProfilePayload {
   name?: string;
@@ -54,8 +54,22 @@ export const userService = {
   /**
    * Toggle follow/unfollow a user
    */
-  async toggleFollow(targetUserId: string): Promise<{ following: boolean }> {
+  async toggleFollow(targetUserId: string): Promise<{
+    following: boolean;
+    isFollowedBy: boolean;
+    isMutual: boolean;
+  }> {
     const res = await api.post('/users/follow', { targetUserId });
+    return res.data.data;
+  },
+
+  /**
+   * Full social graph: who a member follows, who follows them, and the
+   * two-way intersection (real connections).
+   */
+  async getConnections(userId?: string): Promise<ConnectionGraph> {
+    const endpoint = userId && userId !== 'me' ? `/users/${userId}/connections` : '/users/connections';
+    const res = await api.get(endpoint);
     return res.data.data;
   },
 

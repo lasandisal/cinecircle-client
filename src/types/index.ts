@@ -22,6 +22,8 @@ export interface UserStats {
   circlesCount: number;
   reviewsCount: number;
   mutualWatchedCount?: number;
+  /** Two-way follow edges. Distinct from `mutualWatchedCount`. */
+  mutualConnectionsCount?: number;
   /** Real 0-100 compatibility with the signed-in viewer, or null when unknown. */
   circleCompatibility?: number | null;
   circleCompatibilityBasis?: 'taste' | 'watched' | 'both' | 'none';
@@ -120,7 +122,39 @@ export interface UserProfileData {
     participants: string[];
   }>;
   isFollowing?: boolean;
+  /** This person follows the viewer. */
+  isFollowedBy?: boolean;
+  /** Both follow each other - a genuine connection. */
+  isMutualConnection?: boolean;
   isSelf: boolean;
+}
+
+/** One entry in the social graph. */
+export interface ConnectionPerson {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  bio: string;
+  role: string;
+}
+
+export interface ConnectionGraph {
+  following: ConnectionPerson[];
+  followers: ConnectionPerson[];
+  /** People with a two-way follow edge. */
+  mutuals: ConnectionPerson[];
+  counts: {
+    followingCount: number;
+    followersCount: number;
+    mutualConnectionsCount: number;
+  };
+  viewerRelationship: {
+    viewerId: string | null;
+    isFollowing: boolean;
+    isFollowedBy: boolean;
+    isMutual: boolean;
+  };
 }
 
 export interface CommunityPerson {

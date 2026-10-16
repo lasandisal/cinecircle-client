@@ -28,7 +28,7 @@ import { updateUser } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
-import type { UserProfileData, CommunityPerson } from '../types';
+import type { UserProfileData, CommunityPerson, ConnectionGraph, ConnectionPerson } from '../types';
 
 export const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -61,6 +61,33 @@ export const ProfilePage: React.FC = () => {
   const [people, setPeople] = useState<CommunityPerson[]>([]);
   const [searchingPeople, setSearchingPeople] = useState(false);
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
+
+  // Social graph modal
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [connectionsTab, setConnectionsTab] = useState<'mutuals' | 'following' | 'followers'>('mutuals');
+  const [graph, setGraph] = useState<ConnectionGraph | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+
+  const graphList: ConnectionPerson[] =
+    connectionsTab === 'mutuals'
+      ? graph?.mutuals ?? []
+      : connectionsTab === 'following'
+        ? graph?.following ?? []
+        : graph?.followers ?? [];
+
+  const openConnections = async (tab: 'mutuals' | 'following' | 'followers') => {
+    setConnectionsTab(tab);
+    setConnectionsOpen(true);
+    if (graph) return;
+    setGraphLoading(true);
+    try {
+      setGraph(await userService.getConnections(profile?._id));
+    } catch (err) {
+      console.error('Failed to load connections:', err);
+    } finally {
+      setGraphLoading(false);
+    }
+  };
 
   // Real recency-weighted genre affinities, fetched from the backend.
   const [tasteGenreScores, setTasteGenreScores] = useState<
@@ -161,15 +188,41 @@ export const ProfilePage: React.FC = () => {
       setProfile((prev) => {
         if (!prev) return null;
         const newIsFollowing = res.following;
+        // The server resolves both directions, so the mutual badge is computed
+        // from real data rather than guessed from the button state.
+        const wasMutual = !!prev.isMutualConnection;
         return {
           ...prev,
           isFollowing: newIsFollowing,
+          isFollowedBy: res.isFollowedBy,
+          isMutualConnection: res.isMutual,
           stats: {
             ...prev.stats,
-            followersCount: newIsFollowing ? prev.stats.followersCount + 1 : Math.max(0, prev.stats.followersCount - 1),
+            followersCount: newIsFollowing
+              ? prev.stats.followersCount + 1
+              : Math.max(0, prev.stats.followersCount - 1),
+            mutualConnectionsCount: Math.max(
+              0,
+              (prev.stats.mutualConnectionsCount ?? 0) +
+                (res.isMutual === wasMutual ? 0 : res.isMutual ? 1 : -1)
+            ),
           },
         };
       });
+      // Keep an open network panel consistent with the new state.
+      setGraph((prevGraph) =>
+        prevGraph
+          ? {
+              ...prevGraph,
+              viewerRelationship: {
+                viewerId: prevGraph.viewerRelationship.viewerId,
+                isFollowing: res.following,
+                isFollowedBy: res.isFollowedBy,
+                isMutual: res.isMutual,
+              },
+            }
+          : prevGraph
+      );
     } catch (err) {
       console.error('Error toggling follow:', err);
     }
@@ -359,12 +412,26 @@ export const ProfilePage: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {/* Verified Email Badge */}
+                {/* Identity line. The email is only sent unmasked to the account owner and
+                    to admins - everyone else receives a masked copy - so it is
+                    never rendered on someone else's profile. The "Real Account"
+                    badge was previously shown unconditionally, including for
+                    accounts with no verified address. */}
                 <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
-                  <span className="text-xs text-slate-400 font-mono tracking-wide">{profile.email}</span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
-                    <Check className="w-2.5 h-2.5" /> Real Account
-                  </span>
+                  {isSelf && profile.email && (
+                    <span className="text-xs text-slate-400 font-mono tracking-wide">
+                      {profile.email}
+                    </span>
+                  )}
+                  {isSelf ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
+                      <Check className="w-2.5 h-2.5" /> Real Account
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700">
+                      Email hidden
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -389,6 +456,25 @@ export const ProfilePage: React.FC = () => {
                   </>
                 ) : (
                   <>
+                    {/* Real two-way follow edge. Distinct from the shared-titles
+                        line further down, which is about watched titles. */}
+                    {profile.isMutualConnection && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/25"
+                        title="You follow each other"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Connection</span>
+                      </span>
+                    )}
+                    {!profile.isMutualConnection && profile.isFollowedBy && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700"
+                        title="This member already follows you"
+                      >
+                        <span>Follows you</span>
+                      </span>
+                    )}
                     <button
                       onClick={handleToggleFollowProfile}
                       className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 ${
@@ -435,7 +521,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             {/* INSTAGRAM-STYLE METRICS BAR */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-4 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
               <button
                 onClick={() => setActiveTab('circles')}
                 className="hover:scale-105 transition-transform cursor-pointer group"
@@ -446,18 +532,32 @@ export const ProfilePage: React.FC = () => {
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Circles</div>
               </button>
 
+              {/* Two-way follow edges. Previously this tile was labelled
+                  "Connected" but rendered followingCount, so the word implied a
+                  mutual relationship that the data never had. */}
               <button
-                onClick={() => setIsFindPeopleOpen(true)}
+                onClick={() => openConnections('mutuals')}
+                className="hover:scale-105 transition-transform cursor-pointer group"
+                title="Members who follow you and that you follow back"
+              >
+                <div className="text-base sm:text-xl font-black text-teal-400 group-hover:text-teal-300 font-['Outfit']">
+                  {profile.stats.mutualConnectionsCount ?? 0}
+                </div>
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connections</div>
+              </button>
+
+              <button
+                onClick={() => openConnections('following')}
                 className="hover:scale-105 transition-transform cursor-pointer group"
               >
                 <div className="text-base sm:text-xl font-black text-violet-400 group-hover:text-violet-300 font-['Outfit']">
                   {profile.stats.followingCount}
                 </div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connected</div>
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Following</div>
               </button>
 
               <button
-                onClick={() => setIsFindPeopleOpen(true)}
+                onClick={() => openConnections('followers')}
                 className="hover:scale-105 transition-transform cursor-pointer group"
               >
                 <div className="text-base sm:text-xl font-black text-rose-400 group-hover:text-rose-300 font-['Outfit']">
@@ -483,7 +583,7 @@ export const ProfilePage: React.FC = () => {
                 <div className="text-base sm:text-xl font-black text-amber-400 group-hover:text-amber-300 font-['Outfit']">
                   {profile.stats.watchlistCount}
                 </div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Watchlist</div>
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">To Watch</div>
               </button>
 
               <button
@@ -507,7 +607,7 @@ export const ProfilePage: React.FC = () => {
                 <Film className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
                   You and {profile.name} have watched {profile.stats.mutualWatchedCount} common{' '}
-                  {profile.stats.mutualWatchedCount === 1 ? 'title' : 'titles'}.
+                  {profile.stats.mutualWatchedCount === 1 ? 'title' : 'titles'} together.
                 </span>
               </div>
             )}
@@ -542,7 +642,7 @@ export const ProfilePage: React.FC = () => {
             }`}
           >
             <Film className="w-4 h-4" />
-            <span>Watched & Rated ({profile.stats.watchedCount})</span>
+            <span>Watched ({profile.stats.watchedCount})</span>
           </button>
 
           <button
@@ -554,7 +654,7 @@ export const ProfilePage: React.FC = () => {
             }`}
           >
             <Bookmark className="w-4 h-4" />
-            <span>Saved Watchlist ({profile.stats.watchlistCount})</span>
+            <span>Want to Watch ({profile.stats.watchlistCount})</span>
           </button>
 
           <button
@@ -677,8 +777,10 @@ export const ProfilePage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-white font-['Outfit']">Saved Watchlist Backlog</h2>
-                <p className="text-xs text-slate-400">Titles queued to watch next with streaming passes</p>
+                <h2 className="text-base font-bold text-white font-['Outfit']">Want to Watch</h2>
+                <p className="text-xs text-slate-400">
+                  Saved but not yet watched. Tick one off and it moves to your Watched list.
+                </p>
               </div>
               <Link
                 to="/watchlist"
@@ -1223,6 +1325,99 @@ export const ProfilePage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 5. MODAL: FIND MORE PEOPLE / COMMUNITY DIRECTORY (Instagram-Style) */}
       {/* ========================================================================= */}
+      {connectionsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setConnectionsOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-xl rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl shadow-black space-y-5 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Users className="w-5 h-5 text-teal-400" />
+                <h3 className="text-lg font-bold text-white font-['Outfit']">
+                  {profile?.name}&apos;s Network
+                </h3>
+              </div>
+              <button
+                onClick={() => setConnectionsOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
+              {(
+                [
+                  ['mutuals', 'Connections', graph?.counts.mutualConnectionsCount ?? 0],
+                  ['following', 'Following', graph?.counts.followingCount ?? 0],
+                  ['followers', 'Followers', graph?.counts.followersCount ?? 0],
+                ] as const
+              ).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setConnectionsTab(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    connectionsTab === key
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                      : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                  }`}
+                >
+                  {label} ({count})
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {graphLoading ? (
+                <p className="text-center text-xs text-slate-500 py-8">Loading network...</p>
+              ) : graphList.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-8">
+                  {connectionsTab === 'mutuals'
+                    ? 'No mutual connections yet. Connections are members who follow you and that you follow back.'
+                    : connectionsTab === 'following'
+                      ? `${profile?.name} is not following anyone yet.`
+                      : 'No followers yet.'}
+                </p>
+              ) : (
+                graphList.map((person) => (
+                  <div
+                    key={person.id}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-950/50 border border-slate-800"
+                  >
+                    <Link
+                      to={`/profile/${person.id}`}
+                      onClick={() => setConnectionsOpen(false)}
+                      className="flex items-center gap-3 min-w-0 group"
+                    >
+                      <img
+                        src={person.avatar}
+                        alt={person.name}
+                        className="w-9 h-9 rounded-lg object-cover ring-1 ring-slate-800 group-hover:ring-indigo-500 transition-all"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white group-hover:text-indigo-400 truncate">
+                          {person.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate">{person.handle}</p>
+                      </div>
+                    </Link>
+                    {graph?.mutuals.some((m) => m.id === person.id) && (
+                      <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 shrink-0">
+                        Connection
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isFindPeopleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-xl rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl shadow-black space-y-5 max-h-[85vh] flex flex-col">
