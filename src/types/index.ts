@@ -22,6 +22,10 @@ export interface UserStats {
   circlesCount: number;
   reviewsCount: number;
   mutualWatchedCount?: number;
+  /** Real 0-100 compatibility with the signed-in viewer, or null when unknown. */
+  circleCompatibility?: number | null;
+  circleCompatibilityBasis?: 'taste' | 'watched' | 'both' | 'none';
+  circleCompatibilityExplanation?: string;
 }
 
 export interface UserProfileData {

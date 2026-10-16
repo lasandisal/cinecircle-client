@@ -11,7 +11,10 @@ export interface GroupPollProps {
     id: string;
     title: string;
     poster: string;
+    /** Real share of participants who voted yes. */
     scorePercent: number;
+    yesCount?: number;
+    noCount?: number;
     isLeader?: boolean;
   }[];
   status: 'voting' | 'locked';
@@ -65,46 +68,55 @@ export const GroupSessionCard: React.FC<{ session: GroupPollProps }> = ({ sessio
           Current Compromise Shortlist:
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {session.candidates.map((cand) => (
-            <div
-              key={cand.id}
-              className={`flex items-center gap-3 p-2 rounded-xl border transition-colors ${
-                cand.isLeader
-                  ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
-                  : 'bg-slate-950/50 border-slate-800 text-slate-300'
-              }`}
-            >
-              <img
-                src={cand.poster}
-                alt={cand.title}
-                className="w-9 h-12 rounded object-cover shrink-0"
-              />
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold truncate">{cand.title}</span>
-                  <span className="font-mono text-[11px]">{cand.scorePercent}%</span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      cand.isLeader ? 'bg-indigo-400' : 'bg-slate-600'
-                    }`}
-                    style={{ width: `${cand.scorePercent}%` }}
-                  />
+          {session.candidates.map((cand) => {
+            const hasVotes = (cand.yesCount || 0) + (cand.noCount || 0) > 0;
+            return (
+              <div
+                key={cand.id}
+                className={`flex items-center gap-3 p-2 rounded-xl border transition-colors ${
+                  cand.isLeader && hasVotes
+                    ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
+                    : 'bg-slate-950/50 border-slate-800 text-slate-300'
+                }`}
+              >
+                <img
+                  src={cand.poster}
+                  alt={cand.title}
+                  className="w-9 h-12 rounded object-cover shrink-0"
+                />
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold truncate">{cand.title}</span>
+                    {hasVotes ? (
+                      <span className="font-mono text-[11px]">
+                        {cand.scorePercent}% yes ({cand.yesCount}/{cand.yesCount! + cand.noCount!})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 italic">no votes yet</span>
+                    )}
+                  </div>
+                  {/* Progress bar reflects the real yes share */}
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        cand.isLeader && hasVotes ? 'bg-indigo-400' : 'bg-slate-600'
+                      }`}
+                      style={{ width: `${cand.scorePercent}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Gemini AI Mediator Callout */}
+      {/* AI Mediator Callout - only shown once the host has locked a real verdict */}
       {session.aiCompromisePitch && (
         <div className="p-3 rounded-xl bg-gradient-to-r from-violet-950/40 via-indigo-950/30 to-slate-950/40 border border-violet-500/30 space-y-1">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-violet-300">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Gemini AI Compromise Verdict</span>
+            <span>AI Compromise Verdict</span>
           </div>
           <p className="text-xs text-slate-300 italic leading-relaxed">
             "{session.aiCompromisePitch}"

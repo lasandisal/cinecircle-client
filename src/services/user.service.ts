@@ -11,6 +11,22 @@ export interface UpdateProfilePayload {
 
 export const userService = {
   /**
+   * Fetch the current member's taste profile, computing recency-weighted genre
+   * affinities on first call.
+   * GET /api/users/taste-profile
+   */
+  async getTasteProfile(): Promise<{
+    favoriteGenres: string[];
+    favoriteTitles: string[];
+    exclusions: string[];
+    genreScores: Record<string, number>;
+    tasteComputedAt?: string;
+  }> {
+    const res = await api.get('/users/taste-profile');
+    return res.data.data.tasteProfile;
+  },
+
+  /**
    * Get user profile (current user or target user by ID)
    */
   async getProfile(userId?: string): Promise<UserProfileData> {

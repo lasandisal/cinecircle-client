@@ -96,12 +96,28 @@ export const RightSocialSidebar: React.FC = () => {
                     <p className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors truncate">
                       {user.name}
                     </p>
-                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">
-                      {user.matchScore}%
-                    </span>
+                    {/* Real compatibility, or an honest no-data state.
+                        Previously this was 84 + ((idx * 5) % 15). */}
+                    {user.matchScore != null ? (
+                      <span
+                        className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20"
+                        title={user.matchExplanation}
+                      >
+                        {user.matchScore}% match
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[9px] font-bold text-slate-500 bg-slate-800/60 px-1 py-0.2 rounded border border-slate-700"
+                        title={user.matchExplanation}
+                      >
+                        no data
+                      </span>
+                    )}
                   </div>
                   <p className="text-[10px] text-slate-500 truncate">
-                    {user.mutualCount} mutual films
+                    {user.mutualCount > 0
+                      ? `${user.mutualCount} mutual film${user.mutualCount === 1 ? '' : 's'}`
+                      : 'no shared titles yet'}
                   </p>
                 </div>
               </Link>

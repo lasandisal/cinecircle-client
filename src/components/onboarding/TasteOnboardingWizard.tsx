@@ -190,26 +190,22 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
     );
   };
 
-  // Calibration simulation & submit
+  // Real persistence + real taste calculation.
+  //
+  // Previously this displayed three setTimeout() phases animating a progress
+  // bar to 100% ("Analyzing...", "Cross-referencing...", "CineTaste Matrix
+  // successfully calibrated!") with no computation behind any of it.
   const handleStartCalibration = useCallback(async () => {
     setStep(5);
     setSubmitting(true);
     setCalibrationProgress(10);
-    setCalibrationPhase('Analyzing favorite genre distributions...');
+    setCalibrationPhase('Saving your preferences...');
 
     const titleIds = selectedTitles.map((t) => t._id).filter(Boolean);
 
     try {
-      // Progress simulation stages
-      setTimeout(() => {
-        setCalibrationProgress(35);
-        setCalibrationPhase('Cross-referencing seed anchors & mood compatibility...');
-      }, 500);
-
-      setTimeout(() => {
-        setCalibrationProgress(70);
-        setCalibrationPhase('Configuring streaming subscription synergy filters...');
-      }, 1000);
+      setCalibrationProgress(35);
+      setCalibrationPhase('Saving genres, exclusions and subscriptions...');
 
       const result = await userService.completeOnboarding({
         favoriteGenres: selectedGenres,
@@ -218,24 +214,46 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
         subscribedServices: selectedServices,
       });
 
-      setTimeout(() => {
-        setCalibrationProgress(100);
-        setCalibrationPhase('CineTaste Matrix successfully calibrated!');
-        setIsDone(true);
-        setSubmitting(false);
+      setCalibrationProgress(70);
+      setCalibrationPhase('Building your recency-weighted taste profile...');
 
-        // Update Redux state
-        if (result?.user) {
-          dispatch(
-            updateUser({
-              ...result.user,
-              onboarded: true,
-              subscribedServices: selectedServices,
-              tasteProfile: result.tasteProfile,
-            })
-          );
-        }
-      }, 1500);
+      // Ask the backend to actually compute and persist the genre affinities,
+      // then report what it actually found.
+      let summary =
+        `${selectedGenres.length} genre${selectedGenres.length === 1 ? '' : 's'}, ` +
+        `${selectedExclusions.length} exclusion${selectedExclusions.length === 1 ? '' : 's'}, ` +
+        `${selectedServices.length} subscription${selectedServices.length === 1 ? '' : 's'} saved.`;
+
+      try {
+        const taste = await userService.getTasteProfile();
+        const scores = taste?.genreScores || {};
+        const topGenres = Object.entries(scores)
+          .sort((a: any, b: any) => Number(b[1]) - Number(a[1]))
+          .slice(0, 3)
+          .map(([genre]) => genre);
+
+        summary += topGenres.length
+          ? ` Top genres from your watch history: ${topGenres.join(', ')}.`
+          : ' Watch-history affinities will build as you rate titles.';
+      } catch {
+        summary += ' Watch-history affinities will build as you rate titles.';
+      }
+
+      setCalibrationProgress(100);
+      setCalibrationPhase(summary);
+      setIsDone(true);
+      setSubmitting(false);
+
+      if (result?.user) {
+        dispatch(
+          updateUser({
+            ...result.user,
+            onboarded: true,
+            subscribedServices: selectedServices,
+            tasteProfile: result.tasteProfile,
+          })
+        );
+      }
     } catch (err) {
       console.error('Failed to complete onboarding:', err);
       setCalibrationPhase('Error saving preferences. Please try again.');

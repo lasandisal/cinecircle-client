@@ -15,13 +15,16 @@ export interface FeedPostProps {
   titleData: {
     id: string;
     name: string;
-    year: number;
+    /** null when the catalogue has no year for this title. */
+    year: number | null;
     poster: string;
     genres: string[];
-    runtime: string;
+    runtime: string | null;
+    /** Real providers, or [] when we have no availability data. */
     streamingServices: string[];
   };
-  rating: number;
+  /** null when the reviewer did not rate the title. */
+  rating: number | null;
   reviewText: string;
   timestamp: string;
   likesCount: number;
@@ -84,42 +87,60 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
               className="text-sm sm:text-base font-bold text-white hover:text-indigo-400 transition-colors truncate"
             >
               {post.titleData.name}
-              <span className="text-[11px] sm:text-xs text-slate-400 font-normal ml-1">
-                ({post.titleData.year})
-              </span>
+              {post.titleData.year && (
+                <span className="text-[11px] sm:text-xs text-slate-400 font-normal ml-1">
+                  ({post.titleData.year})
+                </span>
+              )}
             </Link>
           </div>
 
-          {/* Star Rating */}
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star
-                key={star}
-                className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${
-                  star <= post.rating
-                    ? 'text-amber-400 fill-amber-400'
-                    : 'text-slate-700'
-                }`}
-              />
-            ))}
-            <span className="text-[11px] sm:text-xs font-bold text-amber-400 ml-1">
-              {post.rating}.0
-            </span>
-          </div>
+          {/* Star Rating - only shown when the reviewer actually rated.
+              The backend used to send `rating: c.rating || 5`, so every
+              unrated review displayed as a perfect 5 stars. */}
+          {post.rating != null && post.rating > 0 ? (
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${
+                    star <= (post.rating as number)
+                      ? 'text-amber-400 fill-amber-400'
+                      : 'text-slate-700'
+                  }`}
+                />
+              ))}
+              <span className="text-[11px] sm:text-xs font-bold text-amber-400 ml-1">
+                {post.rating}
+              </span>
+            </div>
+          ) : (
+            <span className="text-[10px] text-slate-600 italic">No rating given</span>
+          )}
 
           <p className="text-[11px] sm:text-xs text-slate-300 line-clamp-2 leading-relaxed italic">
             "{post.reviewText}"
           </p>
 
-          {/* Streaming badges */}
-          <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-            <span className="text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-0.5">
-              <Tv className="w-2.5 h-2.5 text-cyan-400" /> Watch On:
-            </span>
-            {post.titleData.streamingServices.map((service) => (
-              <StreamingBadge key={service} service={service} size="sm" />
-            ))}
-          </div>
+          {/* Streaming badges - real availability only.
+              These used to be a hardcoded ['Max','Prime Video','Netflix']
+              on every single post regardless of the title. */}
+          {post.titleData.streamingServices?.length > 0 ? (
+            <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-0.5">
+                <Tv className="w-2.5 h-2.5 text-cyan-400" /> Watch On:
+              </span>
+              {post.titleData.streamingServices.map((service) => (
+                <StreamingBadge key={service} service={service} size="sm" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <span className="text-[9px] sm:text-[10px] text-slate-600 flex items-center gap-0.5">
+                <Tv className="w-2.5 h-2.5 text-slate-600" /> Streaming availability unknown
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   Compass,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { StreamingBadge } from '../common/StreamingBadge';
 import { useAppSelector } from '../../hooks/useAppRedux';
+import { userService } from '../../services/user.service';
 
 interface LeftNavSidebarProps {
   activeTab: string;
@@ -22,6 +23,40 @@ interface LeftNavSidebarProps {
 
 export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setActiveTab }) => {
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+
+  // Real counts for this member. Previously these were the literals 42 / 18 / 6.
+  const [stats, setStats] = useState({
+    watchedCount: 0,
+    watchlistCount: 0,
+    circlesCount: 0,
+    loading: true,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAuthenticated) {
+      setStats({ watchedCount: 0, watchlistCount: 0, circlesCount: 0, loading: false });
+      return;
+    }
+    setStats((s) => ({ ...s, loading: true }));
+    userService
+      .getProfile()
+      .then((profile: any) => {
+        if (cancelled) return;
+        setStats({
+          watchedCount: profile?.stats?.watchedCount ?? 0,
+          watchlistCount: profile?.stats?.watchlistCount ?? 0,
+          circlesCount: profile?.stats?.circlesCount ?? 0,
+          loading: false,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setStats((s) => ({ ...s, loading: false }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?._id]);
 
   return (
     <aside className="w-64 shrink-0 space-y-6 hidden lg:block">
@@ -61,28 +96,40 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-800 text-center">
             <div>
-              <span className="block text-sm font-bold text-white">42</span>
+              <span className="block text-sm font-bold text-white">
+                {stats.loading ? '—' : stats.watchedCount}
+              </span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider">Watched</span>
             </div>
             <div>
-              <span className="block text-sm font-bold text-white">18</span>
+              <span className="block text-sm font-bold text-white">
+                {stats.loading ? '—' : stats.watchlistCount}
+              </span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider">Saved</span>
             </div>
             <div>
-              <span className="block text-sm font-bold text-indigo-400">6</span>
+              <span className="block text-sm font-bold text-indigo-400">
+                {stats.loading ? '—' : stats.circlesCount}
+              </span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider">Circles</span>
             </div>
           </div>
 
-          {/* Owned streaming services */}
+          {/* Owned streaming services - from the member's actual subscriptions */}
           <div className="space-y-1.5">
             <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
               <Tv className="w-3 h-3 text-cyan-400" /> Owned Services
             </span>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
-              <StreamingBadge service="Netflix" size="sm" />
-              <StreamingBadge service="Prime Video" size="sm" />
-              <StreamingBadge service="Disney+" size="sm" />
+              {(user.subscribedServices || []).length > 0 ? (
+                (user.subscribedServices || []).map((service) => (
+                  <StreamingBadge key={service} service={service} size="sm" />
+                ))
+              ) : (
+                <p className="text-[10px] text-slate-500 italic">
+                  None added yet — set them in your profile.
+                </p>
+              )}
             </div>
           </div>
         </div>

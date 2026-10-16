@@ -7,7 +7,9 @@ export interface UserSuggestion {
   name: string;
   handle: string;
   avatar: string;
-  matchScore: number;
+  /** Real compatibility 0-100, or null when there is no shared signal yet. */
+  matchScore: number | null;
+  matchExplanation: string;
   mutualCount: number;
 }
 
@@ -52,6 +54,15 @@ export const socialService = {
     let featuredPoll: GroupPollProps | undefined;
     if (sessions.length > 0) {
       const first = sessions[0];
+      const shortlist: any[] = first.shortlist || [];
+      const tally: any[] = first.voteTally || [];
+      const tallyByTitle = new Map(tally.map((t) => [t.titleId, t]));
+
+      // Leader = highest real net score, not simply the first array entry.
+      const leaderTitleId = tally.length
+        ? tally.slice().sort((a, b) => b.netScore - a.netScore)[0].titleId
+        : null;
+
       featuredPoll = {
         id: first._id,
         roomName: first.name || 'Watch Decision Poll',
@@ -61,16 +72,24 @@ export const socialService = {
           name: p.name || 'Participant',
           avatar: p.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'P')}&background=4f46e5&color=fff`,
         })),
-        candidates: (first.shortlist || []).map((c: any, idx: number) => ({
-          id: c._id,
-          title: c.name,
-          poster: c.posterUrl,
-          scorePercent: 70 + ((idx * 11) % 25),
-          isLeader: idx === 0,
-        })),
+        candidates: shortlist.map((c: any) => {
+          const t = tallyByTitle.get(c._id);
+          return {
+            id: c._id,
+            title: c.name,
+            poster: c.posterUrl,
+            // Real percentage of participants who voted yes.
+            scorePercent: t ? t.yesPercent : 0,
+            yesCount: t ? t.yes : 0,
+            noCount: t ? t.no : 0,
+            isLeader: leaderTitleId !== null && c._id === leaderTitleId,
+          };
+        }),
         status: first.status === 'open' ? 'voting' : 'locked',
-        aiCompromisePitch:
-          'Our circle wanted high intensity combined with great craftsmanship. This candidate is the definitive compromise winner — settle in, the debate is officially resolved!',
+        // No verdict before the host locks the room. It is generated at lock
+        // time and returned by /sessions/:id/lock - previously this was a
+        // fixed sentence shown on every open poll, presented as Gemini output.
+        aiCompromisePitch: undefined,
       };
     }
 

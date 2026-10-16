@@ -62,6 +62,42 @@ export const ProfilePage: React.FC = () => {
   const [searchingPeople, setSearchingPeople] = useState(false);
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
 
+  // Real recency-weighted genre affinities, fetched from the backend.
+  const [tasteGenreScores, setTasteGenreScores] = useState<
+    { genre: string; weight: number; pct: number }[]
+  >([]);
+
+  useEffect(() => {
+    // Only the signed-in member's own history is exposed.
+    const viewingSelf =
+      !!profile && !!currentUser && profile._id === currentUser._id;
+
+    if (!viewingSelf) {
+      setTasteGenreScores([]);
+      return;
+    }
+    let cancelled = false;
+    userService
+      .getTasteProfile()
+      .then((taste) => {
+        if (cancelled) return;
+        const scores = taste?.genreScores || {};
+        const entries = Object.entries(scores)
+          .map(([genre, value]) => ({ genre, weight: Number(value) || 0 }))
+          .filter((e) => e.weight > 0)
+          .sort((a, b) => b.weight - a.weight)
+          .slice(0, 8);
+        const max = entries.length ? entries[0].weight : 1;
+        setTasteGenreScores(entries.map((e) => ({ ...e, pct: Math.round((e.weight / max) * 100) })));
+      })
+      .catch(() => {
+        if (!cancelled) setTasteGenreScores([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?._id, profile?._id]);
+
   const isSelf = useMemo(() => {
     if (!profile) return false;
     if (!currentUser) return false;
@@ -908,8 +944,10 @@ export const ProfilePage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h2 className="text-base font-bold text-white font-['Outfit']">CineTaste Matrix & Algorithm Profile</h2>
-                <p className="text-xs text-slate-400">Baseline genres, exclusions, and subscribed streaming passes</p>
+                <h2 className="text-base font-bold text-white font-['Outfit']">Taste Profile &amp; Compatibility</h2>
+                <p className="text-xs text-slate-400">
+                  Your declared preferences, plus genre affinities derived from your watch history
+                </p>
               </div>
               {isSelf && (
                 <button
@@ -934,18 +972,52 @@ export const ProfilePage: React.FC = () => {
                 Genres weighted for AI compromise discovery and mutual circle recommendations.
               </p>
               <div className="flex flex-wrap gap-2 pt-2">
-                {(profile.tasteProfile?.favoriteGenres?.length
-                  ? profile.tasteProfile.favoriteGenres
-                  : ['Science Fiction', 'Drama', 'Thriller', 'Animation']
-                ).map((g) => (
-                  <span
-                    key={g}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
-                  >
-                    ★ {g}
-                  </span>
-                ))}
+                {profile.tasteProfile?.favoriteGenres?.length ? (
+                  profile.tasteProfile.favoriteGenres.map((g) => (
+                    <span
+                      key={g}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
+                    >
+                      ★ {g}
+                    </span>
+                  ))
+                ) : (
+                  /* No invented default genres - say there are none yet. */
+                  <p className="text-xs text-slate-500 italic">
+                    No genres selected yet. Use &ldquo;Update Taste Profile&rdquo; to add some.
+                  </p>
+                )}
               </div>
+
+              {/* Real recency-weighted genre affinities from WatchHistory. */}
+              {tasteGenreScores.length > 0 && (
+                <div className="pt-4 border-t border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Derived from your watch history
+                  </span>
+                  <p className="text-[10px] text-slate-600 mb-2 leading-relaxed">
+                    Weighted by rating and recency — an entry counts half as much after 60 days.
+                  </p>
+                  <div className="space-y-1.5">
+                    {tasteGenreScores.map(({ genre, weight, pct }) => (
+                      <div key={genre} className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-300 w-32 truncate shrink-0">
+                          {genre}
+                        </span>
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 w-10 text-right shrink-0">
+                          {weight.toFixed(1)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {profile.tasteProfile?.exclusions && profile.tasteProfile.exclusions.length > 0 && (
                 <div className="pt-3 border-t border-slate-800">
@@ -983,15 +1055,36 @@ export const ProfilePage: React.FC = () => {
 
               <div className="p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/25 space-y-1.5 mt-4">
                 <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
-                  <span>Circle Compatibility Synergy</span>
-                  <span>94%</span>
+                  <span>Circle Compatibility</span>
+                  {/* Real computed value, or an honest "no data" state.
+                      This was previously a hardcoded 94%. */}
+                  {profile.stats?.circleCompatibility != null ? (
+                    <span>{profile.stats.circleCompatibility}%</span>
+                  ) : (
+                    <span className="text-slate-500 font-semibold">Not enough data</span>
+                  )}
                 </div>
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full w-[94%]" />
-                </div>
-                <p className="text-[11px] text-slate-400 pt-1">
-                  High overlap in subscription providers and low genre conflict with community circles.
-                </p>
+                {profile.stats?.circleCompatibility != null ? (
+                  <>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full transition-all"
+                        style={{ width: `${profile.stats.circleCompatibility}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-400 pt-1">
+                      {profile.stats.circleCompatibilityExplanation ||
+                        'Based on your shared genres and watched titles.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-slate-500 pt-1 italic">
+                    {profile.isSelf
+                      ? 'Build a taste profile and watch some titles to see how you line up with other members.'
+                      : profile.stats?.circleCompatibilityExplanation ||
+                        'Not enough shared history yet.'}
+                  </p>
+                )}
               </div>
             </div>
             </div>
