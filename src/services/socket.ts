@@ -48,7 +48,7 @@ class SocketService {
       autoConnect: true,
       withCredentials: true,
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
     });
 
     return this.socket;
