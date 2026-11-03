@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
+  ArrowRight,
   User,
   Users,
   Film,
@@ -343,6 +344,40 @@ export const ProfilePage: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 py-16 flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
         <p className="text-sm text-slate-400 font-medium">Loading CineCircle profile...</p>
+      </div>
+    );
+  }
+
+  if (!profile && !error) {
+    // Not logged in yet - show a friendly social-style welcome wall
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-rose-500 flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/30">
+            <User className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Welcome to CineCircle</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Join to see what your friends are watching, create watch parties,
+            and get personalised recommendations.
+          </p>
+          <div className="space-y-2">
+            <Link
+              to="/login"
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-colors"
+            >
+              <ArrowRight className="w-4 h-4" />
+              Sign in
+            </Link>
+            <Link
+              to="/register"
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-700 hover:border-indigo-500/50 text-slate-300 hover:text-white text-sm font-medium rounded-xl bg-slate-900/50 transition-colors"
+            >
+              <UserPlus className="w-4 h-4" />
+              Create account
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
