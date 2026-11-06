@@ -63,6 +63,19 @@ export const userService = {
     return res.data.data;
   },
 
+  async requestConnection(targetUserId: string): Promise<{ status: 'pending_sent' }> {
+    const res = await api.post('/users/connections/request', { targetUserId });
+    return res.data.data;
+  },
+
+  async respondToConnection(
+    requestId: string,
+    status: 'accepted' | 'rejected'
+  ): Promise<{ status: 'accepted' | 'rejected' }> {
+    const res = await api.post('/users/connections/respond', { requestId, status });
+    return res.data.data;
+  },
+
   /**
    * Full social graph: who a member follows, who follows them, and the
    * two-way intersection (real connections).

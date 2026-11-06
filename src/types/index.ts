@@ -24,6 +24,9 @@ export interface UserStats {
   mutualWatchedCount?: number;
   /** Two-way follow edges. Distinct from `mutualWatchedCount`. */
   mutualConnectionsCount?: number;
+  connectionsCount?: number;
+  connectionStatus?: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+  connectionRequestId?: string;
   /** Real 0-100 compatibility with the signed-in viewer, or null when unknown. */
   circleCompatibility?: number | null;
   circleCompatibilityBasis?: 'taste' | 'watched' | 'both' | 'none';
@@ -38,6 +41,7 @@ export interface UserProfileData {
   handle: string;
   avatar: string;
   bio: string;
+  connectionRequestId?: string;
   subscribedServices: string[];
   stats: UserStats;
   mutualWatchedTitles?: Array<{
@@ -126,6 +130,7 @@ export interface UserProfileData {
   isFollowedBy?: boolean;
   /** Both follow each other - a genuine connection. */
   isMutualConnection?: boolean;
+  connectionStatus?: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
   isSelf: boolean;
 }
 

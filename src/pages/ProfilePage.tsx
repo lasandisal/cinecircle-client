@@ -62,6 +62,7 @@ export const ProfilePage: React.FC = () => {
   const [people, setPeople] = useState<CommunityPerson[]>([]);
   const [searchingPeople, setSearchingPeople] = useState(false);
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
+  const [connectionLoading, setConnectionLoading] = useState(false);
 
   // Social graph modal
   const [connectionsOpen, setConnectionsOpen] = useState(false);
@@ -178,54 +179,24 @@ export const ProfilePage: React.FC = () => {
     }
   }, [isFindPeopleOpen, searchQuery, loadCommunityPeople]);
 
-  // Toggle follow directly on profile
-  const handleToggleFollowProfile = async () => {
+  const handleConnectionRequest = async () => {
     if (!profile || !currentUser) {
       navigate('/login');
       return;
     }
+    setConnectionLoading(true);
     try {
-      const res = await userService.toggleFollow(profile._id);
-      setProfile((prev) => {
-        if (!prev) return null;
-        const newIsFollowing = res.following;
-        // The server resolves both directions, so the mutual badge is computed
-        // from real data rather than guessed from the button state.
-        const wasMutual = !!prev.isMutualConnection;
-        return {
-          ...prev,
-          isFollowing: newIsFollowing,
-          isFollowedBy: res.isFollowedBy,
-          isMutualConnection: res.isMutual,
-          stats: {
-            ...prev.stats,
-            followersCount: newIsFollowing
-              ? prev.stats.followersCount + 1
-              : Math.max(0, prev.stats.followersCount - 1),
-            mutualConnectionsCount: Math.max(
-              0,
-              (prev.stats.mutualConnectionsCount ?? 0) +
-                (res.isMutual === wasMutual ? 0 : res.isMutual ? 1 : -1)
-            ),
-          },
-        };
-      });
-      // Keep an open network panel consistent with the new state.
-      setGraph((prevGraph) =>
-        prevGraph
-          ? {
-              ...prevGraph,
-              viewerRelationship: {
-                viewerId: prevGraph.viewerRelationship.viewerId,
-                isFollowing: res.following,
-                isFollowedBy: res.isFollowedBy,
-                isMutual: res.isMutual,
-              },
-            }
-          : prevGraph
-      );
+      if (profile.connectionStatus === 'pending_received' && profile.connectionRequestId) {
+        await userService.respondToConnection(profile.connectionRequestId, 'accepted');
+        setProfile((prev) => (prev ? { ...prev, connectionStatus: 'accepted' } : prev));
+      } else {
+        await userService.requestConnection(profile._id);
+        setProfile((prev) => (prev ? { ...prev, connectionStatus: 'pending_sent' } : prev));
+      }
     } catch (err) {
-      console.error('Error toggling follow:', err);
+      console.error('Failed to send connection request:', err);
+    } finally {
+      setConnectionLoading(false);
     }
   };
 
@@ -495,7 +466,7 @@ export const ProfilePage: React.FC = () => {
                   <>
                     {/* Real two-way follow edge. Distinct from the shared-titles
                         line further down, which is about watched titles. */}
-                    {profile.isMutualConnection && (
+                    {profile.connectionStatus === 'accepted' && (
                       <span
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/25"
                         title="You follow each other"
@@ -504,7 +475,7 @@ export const ProfilePage: React.FC = () => {
                         <span>Connection</span>
                       </span>
                     )}
-                    {!profile.isMutualConnection && profile.isFollowedBy && (
+                    {profile.connectionStatus === 'pending_received' && (
                       <span
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700"
                         title="This member already follows you"
@@ -513,22 +484,26 @@ export const ProfilePage: React.FC = () => {
                       </span>
                     )}
                     <button
-                      onClick={handleToggleFollowProfile}
+                      onClick={handleConnectionRequest}
+                      disabled={connectionLoading || profile.connectionStatus === 'pending_sent' || profile.connectionStatus === 'accepted'}
                       className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 ${
-                        profile.isFollowing
-                          ? 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
+                        profile.connectionStatus === 'accepted' || profile.connectionStatus === 'pending_sent'
+                          ? 'bg-slate-800 text-slate-300 border border-slate-700'
                           : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
                       }`}
                     >
-                      {profile.isFollowing ? (
+                      {profile.connectionStatus === 'accepted' ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Following</span>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" /><span>Connected</span>
                         </>
+                      ) : profile.connectionStatus === 'pending_sent' ? (
+                        <span>Request Sent</span>
+                      ) : profile.connectionStatus === 'pending_received' ? (
+                        <><Check className="w-3.5 h-3.5" /><span>Accept Request</span></>
                       ) : (
                         <>
                           <UserPlus className="w-3.5 h-3.5" />
-                          <span>Follow</span>
+                          <span>Connect</span>
                         </>
                       )}
                     </button>
@@ -558,7 +533,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             {/* INSTAGRAM-STYLE METRICS BAR */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
               <button
                 onClick={() => setActiveTab('circles')}
                 className="hover:scale-105 transition-transform cursor-pointer group"
@@ -569,38 +544,16 @@ export const ProfilePage: React.FC = () => {
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Circles</div>
               </button>
 
-              {/* Two-way follow edges. Previously this tile was labelled
-                  "Connected" but rendered followingCount, so the word implied a
-                  mutual relationship that the data never had. */}
+              {/* Only reciprocal follow edges count as accepted connections. */}
               <button
                 onClick={() => openConnections('mutuals')}
                 className="hover:scale-105 transition-transform cursor-pointer group"
-                title="Members who follow you and that you follow back"
+                title="Accepted connections"
               >
                 <div className="text-base sm:text-xl font-black text-teal-400 group-hover:text-teal-300 font-['Outfit']">
-                  {profile.stats.mutualConnectionsCount ?? 0}
+                  {profile.stats.connectionsCount ?? 0}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connections</div>
-              </button>
-
-              <button
-                onClick={() => openConnections('following')}
-                className="hover:scale-105 transition-transform cursor-pointer group"
-              >
-                <div className="text-base sm:text-xl font-black text-violet-400 group-hover:text-violet-300 font-['Outfit']">
-                  {profile.stats.followingCount}
-                </div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Following</div>
-              </button>
-
-              <button
-                onClick={() => openConnections('followers')}
-                className="hover:scale-105 transition-transform cursor-pointer group"
-              >
-                <div className="text-base sm:text-xl font-black text-rose-400 group-hover:text-rose-300 font-['Outfit']">
-                  {profile.stats.followersCount}
-                </div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Followers</div>
               </button>
 
               <button
