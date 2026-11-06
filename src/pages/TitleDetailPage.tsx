@@ -702,9 +702,9 @@ export const TitleDetailPage: React.FC = () => {
   const seasonEpisodeList = activeSeasonData?.episodes || [];
 
   return (
-    <div className="max-w-6xl mx-auto pb-16 space-y-8 animate-in fade-in duration-300">
+    <div className="max-w-6xl mx-auto pb-16 space-y-8 flex flex-col animate-in fade-in duration-300">
       {/* Back Button */}
-      <div>
+      <div className="order-[-3]">
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
@@ -714,7 +714,7 @@ export const TitleDetailPage: React.FC = () => {
       </div>
 
       {/* Hero Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-slate-800 bg-slate-900/60 shadow-2xl">
+      <div className="relative order-[-2] rounded-3xl overflow-hidden border border-slate-800 bg-slate-900/60 shadow-2xl">
         {/* Backdrop Image */}
         {title.backdropUrl && (
           <div className="absolute inset-0 z-0">
@@ -1007,7 +1007,7 @@ export const TitleDetailPage: React.FC = () => {
       {/* Main Grid: Details + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Synopsis, Cast, Seasons, Discussion */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 flex flex-col space-y-8">
           {/* Synopsis */}
           <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Storyline</h2>
@@ -1808,7 +1808,7 @@ export const TitleDetailPage: React.FC = () => {
           )}
 
           {/* Discussion & Enthusiast Comments (Facebook-Style Reactions, Threaded Replies, and Polls) */}
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-6">
+          <div className="order-[-1] bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-sm space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-400">
                 <MessageSquare className="w-4 h-4 text-violet-400" />
