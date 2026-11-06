@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { KeyRound, Flame, ArrowRight, UserPlus, Check, Star, LogIn } from 'lucide-react';
+import { KeyRound, Flame, ArrowRight, UserPlus, Check, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 import type { Title } from '../../types';
@@ -189,21 +189,14 @@ export const RightSocialSidebar: React.FC = () => {
           </div>
         </div>
       ) : (
+        /* Guests: informational only — Navbar is the single sign-in entry point */
         <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
             Find Your People
           </h4>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            Sign in to see members with similar taste, follow them, and compare what you both
-            watched.
+            Sign in to discover members with similar taste, follow them, and compare what you both watched.
           </p>
-          <Link
-            to="/login"
-            className="mt-1 w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            Sign In
-          </Link>
         </div>
       )}
 

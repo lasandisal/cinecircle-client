@@ -8,13 +8,22 @@ import {
   AlertCircle,
   ArrowRight,
   Loader2,
-  Sparkles,
   KeyRound,
   RefreshCw,
+  Star,
+  MessageSquare,
+  Users,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppRedux';
 import { loginUser, clearError } from '../store/slices/authSlice';
 import { authService } from '../services/auth.service';
+
+/** Three-word feature pills shown below the tagline */
+const features = [
+  { icon: Star, label: 'Rate & Review' },
+  { icon: MessageSquare, label: 'Discuss Films' },
+  { icon: Users, label: 'Decide Together' },
+];
 
 export const LoginPage: React.FC = () => {
   const [authMode, setAuthMode] = useState<'password' | 'otp'>('password');
@@ -28,424 +37,325 @@ export const LoginPage: React.FC = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [devHint, setDevHint] = useState<string | null>(null);
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
   const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
-
   const redirectPath = (location.state as any)?.from?.pathname || '/';
 
-  useEffect(() => {
-    dispatch(clearError());
-  }, [dispatch]);
+  useEffect(() => { dispatch(clearError()); }, [dispatch]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(redirectPath, { replace: true });
-    }
+    if (isAuthenticated) navigate(redirectPath, { replace: true });
   }, [isAuthenticated, navigate, redirectPath]);
 
-  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
-    const interval = setInterval(() => {
-      setResendCooldown((prev) => prev - 1);
-    }, 1000);
+    const interval = setInterval(() => setResendCooldown((p) => p - 1), 1000);
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  // Handle password login
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-
-    if (!email.trim()) {
-      setLocalError('Please enter your email address.');
-      return;
-    }
-    if (!password) {
-      setLocalError('Please enter your password.');
-      return;
-    }
-
+    if (!email.trim()) { setLocalError('Please enter your email address.'); return; }
+    if (!password) { setLocalError('Please enter your password.'); return; }
     try {
-      const resultAction = await dispatch(loginUser({ email: email.trim(), password }));
-      if (loginUser.fulfilled.match(resultAction)) {
-        navigate(redirectPath, { replace: true });
-      }
-    } catch {
-      // Handled via Redux state
-    }
+      const result = await dispatch(loginUser({ email: email.trim(), password }));
+      if (loginUser.fulfilled.match(result)) navigate(redirectPath, { replace: true });
+    } catch { /* Handled via Redux state */ }
   };
 
-  // Handle send OTP for login
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    setDevHint(null);
-
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
       setLocalError('Please enter a valid email address.');
       return;
     }
-
     setSendingOtp(true);
     try {
-      const res = await authService.sendOtp(email.trim(), 'login');
+      await authService.sendOtp(email.trim(), 'login');
       setOtpSent(true);
       setResendCooldown(45);
-      if (res?.devCode) {
-        setDevHint(res.devCode);
-      }
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Could not send login code. Please check your email.';
-      setLocalError(msg);
+      setLocalError(err.response?.data?.error || 'Could not send login code. Please check your email.');
     } finally {
       setSendingOtp(false);
     }
   };
 
-  // Handle verify OTP login
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-
     if (!otp.trim() || otp.trim().length < 6) {
       setLocalError('Please enter the 6-digit verification code.');
       return;
     }
-
     try {
-      const resultAction = await dispatch(loginUser({ email: email.trim(), otp: otp.trim() }));
-      if (loginUser.fulfilled.match(resultAction)) {
-        navigate(redirectPath, { replace: true });
-      }
-    } catch {
-      // Handled via Redux state
-    }
-  };
-
-  const handleQuickDemo = () => {
-    setAuthMode('password');
-    setEmail('lasandisalwathura@gmail.com');
-    setPassword('Password123!');
-    setLocalError(null);
+      const result = await dispatch(loginUser({ email: email.trim(), otp: otp.trim() }));
+      if (loginUser.fulfilled.match(result)) navigate(redirectPath, { replace: true });
+    } catch { /* Handled via Redux state */ }
   };
 
   const displayError = localError || error;
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
-        {/* Glow backdrop card */}
-        <div className="relative bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 overflow-hidden">
-          {/* Subtle decorative glow */}
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="relative min-h-screen flex flex-col overflow-hidden bg-black">
+      {/* Full-screen TV series collage background */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/auth-bg.jpg')" }}
+      />
+      {/* Layered gradients — heavy on the left so card stays readable */}
+      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
 
-          {/* Header */}
-          <div className="relative text-center space-y-3 mb-6">
-            <div className="inline-flex justify-center p-1 rounded-2xl bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-cyan-500/20 border border-slate-700/60 shadow-lg shadow-indigo-500/10">
-              <img
-                src="/logo.png"
-                alt="CineCircle Logo"
-                className="w-14 h-14 rounded-xl object-cover"
-              />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white font-['Outfit']">
-                Welcome back to <span className="text-indigo-400">CineCircle</span>
-              </h1>
-              <p className="text-xs text-slate-400 mt-1">
-                Pick faster. Watch better. Decide together.
+      {/* Minimal top bar — logo only */}
+      <header className="relative z-10 flex items-center px-8 sm:px-14 py-5">
+        <Link to="/" className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="CineCircle" className="w-9 h-9 rounded-xl object-cover" />
+          <span className="text-xl font-black tracking-tight text-white font-['Outfit']">
+            Cine<span className="text-indigo-400">Circle</span>
+          </span>
+        </Link>
+      </header>
+
+      {/* Two-column layout: tagline left, card right */}
+      <div className="relative z-10 flex-1 flex items-center px-8 sm:px-14 py-8 gap-16">
+
+        {/* Left — brand tagline (hidden on mobile, shown on lg+) */}
+        <div className="hidden lg:flex flex-col gap-6 max-w-md">
+          <div className="space-y-2">
+            <p className="text-indigo-400 text-sm font-bold uppercase tracking-widest">
+              A film & TV review community
+            </p>
+            <h1 className="text-5xl font-black leading-[1.05] text-white font-['Outfit']">
+              Stop scrolling.<br />
+              Start deciding.
+            </h1>
+            <p className="text-slate-300 text-base leading-relaxed mt-3">
+              CineCircle is where you rate what you've watched, write honest reviews,
+              and use group voting to finally settle the "what should we watch?" debate —
+              with your friends.
+            </p>
+          </div>
+
+          {/* Feature pills */}
+          <div className="flex flex-wrap gap-3">
+            {features.map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm"
+              >
+                <Icon className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-semibold text-slate-200">{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Not-streaming disclaimer */}
+          <p className="text-xs text-slate-500 border-l-2 border-slate-700 pl-3 leading-relaxed">
+            CineCircle does <strong className="text-slate-400">not</strong> stream any video.
+            We're a social review platform — think Letterboxd meets group decision-making.
+          </p>
+        </div>
+
+        {/* Right — auth card */}
+        <div className="w-full max-w-[400px] ml-auto lg:ml-0">
+          <div className="bg-black/80 backdrop-blur-md rounded-2xl px-8 py-9 shadow-2xl border border-white/8">
+
+            {/* Card header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-black tracking-tight text-white mb-1">
+                Welcome back
+              </h2>
+              <p className="text-sm text-slate-400">
+                Sign in to your CineCircle account.
               </p>
             </div>
-          </div>
 
-          {/* Mode Switcher Tabs */}
-          <div className="relative mb-5 grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('password');
-                setLocalError(null);
-              }}
-              className={`py-2 rounded-lg transition-all ${
-                authMode === 'password'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Password Login
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('otp');
-                setLocalError(null);
-              }}
-              className={`py-2 rounded-lg transition-all ${
-                authMode === 'otp'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Email OTP Sign-In
-            </button>
-          </div>
-
-          {/* Error Banner */}
-          {displayError && (
-            <div className="relative mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs animate-in fade-in duration-200">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-              <span className="leading-relaxed">{displayError}</span>
+            {/* Mode tabs */}
+            <div className="mb-5 grid grid-cols-2 p-1 bg-white/5 border border-white/10 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('password'); setLocalError(null); }}
+                className={`py-2 rounded-lg transition-all ${authMode === 'password' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('otp'); setLocalError(null); }}
+                className={`py-2 rounded-lg transition-all ${authMode === 'otp' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                Email OTP
+              </button>
             </div>
-          )}
 
-          {/* MODE 1: Standard Password Login */}
-          {authMode === 'password' && (
-            <form className="relative space-y-4" onSubmit={handlePasswordSubmit}>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Email Address
-                </label>
+            {/* Error banner */}
+            {displayError && (
+              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-rose-950/60 border border-rose-700/50 text-rose-300 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">{displayError}</span>
+              </div>
+            )}
+
+            {/* Password login */}
+            {authMode === 'password' && (
+              <form className="space-y-4" onSubmit={handlePasswordSubmit}>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (displayError) {
-                        setLocalError(null);
-                        dispatch(clearError());
-                      }
-                    }}
-                    placeholder="lasandi@example.com"
+                    onChange={(e) => { setEmail(e.target.value); if (displayError) { setLocalError(null); dispatch(clearError()); } }}
+                    placeholder="Email address"
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
                   />
                 </div>
-              </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('otp')}
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
-                  >
-                    Forgot password? Use OTP
-                  </button>
-                </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (displayError) {
-                        setLocalError(null);
-                        dispatch(clearError());
-                      }
-                    }}
-                    placeholder="••••••••"
+                    onChange={(e) => { setPassword(e.target.value); if (displayError) { setLocalError(null); dispatch(clearError()); } }}
+                    placeholder="Password"
                     autoComplete="current-password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
+                    className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          )}
+                <div className="text-right -mt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('otp'); setLocalError(null); }}
+                    className="text-xs text-slate-400 hover:text-indigo-300 transition-colors"
+                  >
+                    Forgot password? Use OTP →
+                  </button>
+                </div>
 
-          {/* MODE 2: Passwordless Email OTP Login */}
-          {authMode === 'otp' && (
-            <div className="relative space-y-4 animate-in fade-in duration-200">
-              {!otpSent ? (
-                <form className="space-y-4" onSubmit={handleSendOtp}>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Enter Registered Email
-                    </label>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none shadow-lg shadow-indigo-700/40"
+                >
+                  {loading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Signing in...</span></>
+                    : <><span>Sign In</span><ArrowRight className="w-4 h-4" /></>}
+                </button>
+              </form>
+            )}
+
+            {/* OTP login */}
+            {authMode === 'otp' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {!otpSent ? (
+                  <form className="space-y-4" onSubmit={handleSendOtp}>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (displayError) setLocalError(null);
-                        }}
-                        placeholder="lasandi@example.com"
+                        onChange={(e) => { setEmail(e.target.value); if (displayError) setLocalError(null); }}
+                        placeholder="Registered email address"
                         autoComplete="email"
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
+                        className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      We'll send a 6-digit code to sign in instantly without a password.
-                    </p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={sendingOtp}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
-                  >
-                    {sendingOtp ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Sending Login Code...</span>
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="w-4 h-4" />
-                        <span>Send Login Code</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <form className="space-y-4" onSubmit={handleOtpSubmit}>
-                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-center space-y-1">
-                    <p className="text-xs text-slate-400">
-                      Code sent to <span className="text-indigo-300 font-semibold">{email}</span>
-                    </p>
+                    <p className="text-xs text-slate-500">We'll email you a 6-digit code — no password needed.</p>
                     <button
-                      type="button"
-                      onClick={() => setOtpSent(false)}
-                      className="text-[11px] text-cyan-400 hover:underline inline-flex items-center gap-1"
+                      type="submit"
+                      disabled={sendingOtp}
+                      className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-700/40"
                     >
-                      Use another email
+                      {sendingOtp
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Sending Code...</span></>
+                        : <><KeyRound className="w-4 h-4" /><span>Send Login Code</span></>}
                     </button>
-                    {devHint && (
-                      <div className="mt-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1">
-                        <div className="text-lg font-mono font-bold tracking-widest text-amber-400">
-                          {devHint}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setOtp(devHint)}
-                          className="px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold"
-                        >
-                          Click to Auto-Fill Code
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  </form>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleOtpSubmit}>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center space-y-1">
+                      <p className="text-xs text-slate-400">
+                        Code sent to <span className="text-indigo-300 font-semibold">{email}</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500">Check your inbox and spam folder.</p>
+                      <button
+                        type="button"
+                        onClick={() => { setOtpSent(false); setOtp(''); }}
+                        className="text-[11px] text-cyan-400 hover:underline"
+                      >
+                        Use a different email
+                      </button>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-2 text-center">
-                      Enter 6-Digit Code
-                    </label>
                     <input
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
                       value={otp}
-                      onChange={(e) => {
-                        setOtp(e.target.value.replace(/[^0-9]/g, ''));
-                        if (displayError) setLocalError(null);
-                      }}
+                      onChange={(e) => { setOtp(e.target.value.replace(/[^0-9]/g, '')); if (displayError) setLocalError(null); }}
                       placeholder="------"
                       autoFocus
-                      className="w-full py-3 px-4 bg-slate-950 border-2 border-indigo-500/50 rounded-xl text-center text-xl font-mono font-bold tracking-[0.4em] text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                      className="w-full py-3 px-4 bg-white/10 border-2 border-indigo-500/50 rounded-xl text-center text-xl font-mono font-bold tracking-[0.4em] text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                     />
-                  </div>
 
-                  <div className="text-center">
-                    {resendCooldown > 0 ? (
-                      <span className="text-xs text-slate-500">
-                        Resend in {resendCooldown}s
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={sendingOtp}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${sendingOtp ? 'animate-spin' : ''}`} />
-                        <span>Resend code</span>
-                      </button>
-                    )}
-                  </div>
+                    <div className="text-center">
+                      {resendCooldown > 0 ? (
+                        <span className="text-xs text-slate-500">Resend in {resendCooldown}s</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSendOtp as any}
+                          disabled={sendingOtp}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${sendingOtp ? 'animate-spin' : ''}`} />
+                          <span>Resend code</span>
+                        </button>
+                      )}
+                    </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading || otp.length < 6}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 hover:from-indigo-500 hover:via-purple-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Signing In...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Verify & Sign In</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
+                    <button
+                      type="submit"
+                      disabled={loading || otp.length < 6}
+                      className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-700/40"
+                    >
+                      {loading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Signing In...</span></>
+                        : <><span>Verify & Sign In</span><ArrowRight className="w-4 h-4" /></>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-6 pt-5 border-t border-white/8 text-center space-y-3">
+              <p className="text-sm text-slate-400">
+                New to CineCircle?{' '}
+                <Link to="/register" state={location.state} className="font-semibold text-white hover:text-indigo-300 transition-colors">
+                  Create a free account
+                </Link>
+              </p>
+              <p className="text-[11px] text-slate-600">
+                🎬 CineCircle is a review &amp; decision community — we don't stream any video.
+              </p>
             </div>
-          )}
-
-          {/* Quick Demo Autofill button */}
-          <div className="relative pt-2">
-            <button
-              type="button"
-              onClick={handleQuickDemo}
-              className="w-full py-2 px-3 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 text-[11px] font-medium text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-all"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Fill Admin Credentials (lasandisalwathura@gmail.com)</span>
-            </button>
-          </div>
-
-          {/* Footer Navigation */}
-          <div className="relative pt-5 border-t border-slate-800/80 text-center">
-            <p className="text-xs text-slate-400">
-              Don't have an account?{' '}
-              <Link
-                to="/register"
-                state={location.state}
-                className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                Create one now
-              </Link>
-            </p>
           </div>
         </div>
       </div>

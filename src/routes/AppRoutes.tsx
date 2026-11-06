@@ -18,6 +18,25 @@ import { GuestRoute } from './GuestRoute';
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      {/* Auth routes — full-screen, no Navbar/Footer */}
+      <Route
+        path="login"
+        element={
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="register"
+        element={
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        }
+      />
+
+      {/* App routes — wrapped in MainLayout */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<HomePage />} />
         <Route path="recommend" element={<SoloRecommendationPage />} />
@@ -48,22 +67,6 @@ export const AppRoutes: React.FC = () => {
             <ProtectedRoute requiredRole="admin">
               <CuratorDashboardPage />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="login"
-          element={
-            <GuestRoute>
-              <LoginPage />
-            </GuestRoute>
-          }
-        />
-        <Route
-          path="register"
-          element={
-            <GuestRoute>
-              <RegisterPage />
-            </GuestRoute>
           }
         />
         <Route path="*" element={<NotFoundPage />} />

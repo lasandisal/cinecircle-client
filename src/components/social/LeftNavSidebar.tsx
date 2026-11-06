@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   Compass,
   Users,
@@ -8,8 +8,6 @@ import {
   TrendingUp,
   UserCheck,
   Tv,
-  LogIn,
-  UserPlus,
   ShieldCheck,
 } from 'lucide-react';
 import { StreamingBadge } from '../common/StreamingBadge';
@@ -134,34 +132,30 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm space-y-3">
-          <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="CineCircle" className="w-8 h-8 rounded-lg object-cover" />
-            <div>
-              <h3 className="text-xs font-bold text-white">Join CineCircle</h3>
-              <p className="text-[10px] text-slate-400">Social movie discovery</p>
+        /* Guests: show a slim info card — the Navbar already has Sign In / Get Started */
+        <>
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm space-y-2">
+            <div className="flex items-center gap-2.5">
+              <img src="/logo.png" alt="CineCircle" className="w-8 h-8 rounded-lg object-cover" />
+              <div>
+                <h3 className="text-xs font-bold text-white">CineCircle</h3>
+                <p className="text-[10px] text-slate-400">Social film discovery</p>
+              </div>
             </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Rate films, write reviews, and decide what to watch together — for free.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Say goodbye to scrolling paralysis with group decisions, friend reviews and smart compromise picks.
-          </p>
-          <div className="flex flex-col gap-2 pt-1">
-            <Link
-              to="/login"
-              className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-slate-700/60"
-            >
-              <LogIn className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Sign In</span>
-            </Link>
-            <Link
-              to="/register"
-              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Create Account</span>
-            </Link>
+
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm space-y-2">
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              Find Your People
+            </h3>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Sign in to discover members with similar taste, follow them, and compare what you both watched.
+            </p>
           </div>
-        </div>
+        </>
       )}
 
       {/* Feed Filters - members only. Guests have a single discovery view. */}
