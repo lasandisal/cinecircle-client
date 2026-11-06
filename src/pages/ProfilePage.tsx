@@ -351,29 +351,31 @@ export const ProfilePage: React.FC = () => {
   if (!profile && !error) {
     // Not logged in yet - show a friendly social-style welcome wall
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
-        <div className="w-full max-w-md text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-rose-500 flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/30">
-            <User className="w-8 h-8 text-white" />
+      <div className="flex min-h-[85vh] flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-16">
+        <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg text-center space-y-6 sm:space-y-8">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-rose-500 flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/30 sm:shadow-xl lg:shadow-2xl">
+            <User className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Welcome to CineCircle</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+            Welcome to CineCircle
+          </h2>
+          <p className="text-sm sm:text-base lg:text-lg text-slate-400 leading-relaxed max-w-xs sm:max-w-md lg:max-w-lg mx-auto">
             Join to see what your friends are watching, create watch parties,
             and get personalised recommendations.
           </p>
-          <div className="space-y-2">
+          <div className="space-y-3 sm:space-y-4 w-full">
             <Link
               to="/login"
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm sm:text-base font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all sm:shadow-xl active:scale-95"
             >
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               Sign in
             </Link>
             <Link
               to="/register"
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-700 hover:border-indigo-500/50 text-slate-300 hover:text-white text-sm font-medium rounded-xl bg-slate-900/50 transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 border border-slate-700 hover:border-indigo-500/50 text-slate-300 hover:text-white text-sm sm:text-base font-medium rounded-xl bg-slate-900/50 transition-all sm:bg-slate-900/70 active:scale-95"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
               Create account
             </Link>
           </div>
@@ -556,7 +558,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             {/* INSTAGRAM-STYLE METRICS BAR */}
-            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-4 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 py-3 px-4 rounded-2xl bg-slate-950/60 border border-slate-800/70 text-center">
               <button
                 onClick={() => setActiveTab('circles')}
                 className="hover:scale-105 transition-transform cursor-pointer group"

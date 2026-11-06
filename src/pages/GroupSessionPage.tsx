@@ -879,9 +879,9 @@ export const GroupSessionPage: React.FC = () => {
         {/* Add Show / Movie to Shortlist Modal */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-full sm:max-w-lg lg:max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-slate-800/80 flex items-center justify-between">
+              <div className="p-3 sm:p-4 lg:p-5 border-b border-slate-800/80 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                     <Film className="w-4 h-4" />
@@ -904,7 +904,7 @@ export const GroupSessionPage: React.FC = () => {
               </div>
 
               {/* Search Input */}
-              <div className="p-4 sm:p-5 border-b border-slate-800/60 bg-slate-900/30">
+              <div className="p-3 sm:p-4 lg:p-5 border-b border-slate-800/60 bg-slate-900/30">
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
