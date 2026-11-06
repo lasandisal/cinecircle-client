@@ -122,7 +122,7 @@ export const SoloRecommendationPage: React.FC = () => {
               Solo Decision Engine
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm max-w-lg mx-auto">
-              Tailored shortlists calculated from real database titles, your current mood, time limit, and Gemini AI.
+              Tailored shortlists calculated from real database titles, your current mood, time limit and smart AI matching.
             </p>
           </>
         )}
@@ -212,7 +212,7 @@ export const SoloRecommendationPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Gemini AI Custom Prompt Bar */}
+          {/* Natural-language custom prompt bar */}
           <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Wand2 className="w-4 h-4 text-cyan-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />

@@ -143,7 +143,7 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
             </div>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Eliminate streaming fatigue with group swiping, friend reviews, and Gemini AI compromises.
+            Say goodbye to scrolling paralysis with group decisions, friend reviews and smart compromise picks.
           </p>
           <div className="flex flex-col gap-2 pt-1">
             <Link

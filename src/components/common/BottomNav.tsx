@@ -1,8 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Sparkles, Plus, Bookmark } from 'lucide-react';
+import { Home, Sparkles, Plus, Bookmark, User as UserIcon } from 'lucide-react';
+import { useAppSelector } from '../../hooks/useAppRedux';
 
 export const BottomNav: React.FC = () => {
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+  const initial = user?.name?.charAt(0).toUpperCase();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-1 shadow-2xl">
       <div className="flex items-center justify-around max-w-md mx-auto">
@@ -54,7 +58,7 @@ export const BottomNav: React.FC = () => {
           <span className="text-[10px]">Watchlist</span>
         </NavLink>
 
-        {/* Profile */}
+        {/* Profile - the real avatar, never someone else's stock photo. */}
         <NavLink
           to="/profile/me"
           className={({ isActive }) =>
@@ -63,11 +67,17 @@ export const BottomNav: React.FC = () => {
             }`
           }
         >
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&h=60&fit=crop&crop=faces"
-            alt="Profile"
-            className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-700"
-          />
+          {isAuthenticated && user?.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-700"
+            />
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-slate-800 ring-1 ring-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-200">
+              {initial || <UserIcon className="w-3 h-3" />}
+            </span>
+          )}
           <span className="text-[10px]">Profile</span>
         </NavLink>
       </div>

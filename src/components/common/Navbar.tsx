@@ -134,8 +134,9 @@ export const Navbar: React.FC = () => {
             </span>
           </Link>
 
-          {/* Desktop Search Bar with Live Results Dropdown */}
-          <div className="relative hidden md:block w-64 lg:w-80" ref={searchContainerRef}>
+          {/* Desktop Search Bar with Live Results Dropdown. Hidden below lg so
+              the tablet navbar (768-1023px) has room for navigation links. */}
+          <div className="relative hidden lg:block w-44 xl:w-72 2xl:w-80" ref={searchContainerRef}>
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchInputRef}
@@ -262,11 +263,11 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Primary Desktop Nav Links (hidden on mobile, handled by bottom dock) */}
-        <nav className="hidden md:flex items-center gap-1.5">
+        <nav className="hidden md:flex items-center gap-1 xl:gap-1.5">
           <NavLink
             to="/"
             className={({ isActive }) =>
-              `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              `flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-slate-900 text-indigo-400 border border-slate-800'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
@@ -279,7 +280,7 @@ export const Navbar: React.FC = () => {
           <NavLink
             to="/recommend"
             className={({ isActive }) =>
-              `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              `flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-slate-900 text-violet-400 border border-slate-800'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
@@ -293,7 +294,7 @@ export const Navbar: React.FC = () => {
           <NavLink
             to="/group"
             className={({ isActive }) =>
-              `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              `flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-slate-900 text-indigo-400 border border-slate-800'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
@@ -307,7 +308,7 @@ export const Navbar: React.FC = () => {
           <NavLink
             to="/watchlist"
             className={({ isActive }) =>
-              `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              `flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-slate-900 text-amber-400 border border-slate-800'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
@@ -319,28 +320,28 @@ export const Navbar: React.FC = () => {
           </NavLink>
         </nav>
 
-        {/* Right Section: Mobile Search trigger, notifications, and profile/auth */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Mobile search toggle */}
+        {/* Right Section: Search trigger, notifications, and profile/auth */}
+        <div className="flex items-center gap-1.5 sm:gap-2 xl:gap-3">
+          {/* Search toggle for every screen without the inline search bar. */}
           <button
             onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
-            className="md:hidden w-8 h-8 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-300 active:scale-95 transition-transform"
+            className="lg:hidden w-8 h-8 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-300 active:scale-95 transition-transform"
             aria-label="Toggle Search"
           >
             {mobileSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
           </button>
 
-          {/* New Circle CTA button */}
+          {/* New Circle CTA button - only where there is spare horizontal room. */}
           <Link
             to="/group"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/25 transition-all"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/25 transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Circle</span>
           </Link>
 
-          {/* Notifications Dropdown */}
-          <NotificationsDropdown />
+          {/* Notifications only make sense for signed-in members. */}
+          {isAuthenticated && <NotificationsDropdown />}
 
           {/* User Profile / Auth State */}
           {isAuthenticated ? (
@@ -422,18 +423,19 @@ export const Navbar: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Link
                 to="/login"
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 transition-all"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 transition-all whitespace-nowrap"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-600/20 transition-all"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-600/20 transition-all whitespace-nowrap"
               >
-                Get Started
+                <span className="sm:hidden">Join</span>
+                <span className="hidden sm:inline">Get Started</span>
               </Link>
             </div>
           )}
@@ -442,7 +444,7 @@ export const Navbar: React.FC = () => {
 
       {/* Expandable Mobile Search Bar with Live Results */}
       {mobileSearchOpen && (
-        <div className="md:hidden px-3 pb-3 pt-1 border-t border-slate-850 bg-slate-950/95 animate-in fade-in duration-200">
+        <div className="lg:hidden px-3 pb-3 pt-1 border-t border-slate-850 bg-slate-950/95 animate-in fade-in duration-200">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input

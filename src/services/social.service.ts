@@ -92,7 +92,7 @@ export const socialService = {
         status: first.status === 'open' ? 'voting' : 'locked',
         // No verdict before the host locks the room. It is generated at lock
         // time and returned by /sessions/:id/lock - previously this was a
-        // fixed sentence shown on every open poll, presented as Gemini output.
+        // fixed sentence shown on every open poll, presented as AI output.
         aiCompromisePitch: undefined,
       };
     }

@@ -72,7 +72,7 @@ export const SoloDecisionWidget: React.FC = () => {
             }`}
           >
             <Wand2 className="w-3 h-3 text-cyan-300" />
-            <span>Gemini AI</span>
+            <span>AI Match</span>
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@ export const SoloDecisionWidget: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Gemini AI Natural Vibe Prompt */
+        /* Natural-language vibe prompt */
         <div className="space-y-2.5 pt-0.5 animate-in fade-in duration-200">
           <div className="relative">
             <textarea
@@ -163,7 +163,7 @@ export const SoloDecisionWidget: React.FC = () => {
             </>
           ) : (
             <span className="text-violet-300 font-medium flex items-center gap-1 justify-center sm:justify-start">
-              <Sparkles className="w-3 h-3 text-cyan-400" /> Powered by Google Gemini AI
+              <Sparkles className="w-3 h-3 text-cyan-400" /> Tell us the vibe — we&apos;ll find the match
             </span>
           )}
         </span>
