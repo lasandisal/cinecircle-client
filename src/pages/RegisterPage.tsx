@@ -16,6 +16,8 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/useAppRedux';
 import { registerUser, clearError } from '../store/slices/authSlice';
 import { authService } from '../services/auth.service';
+import { uploadProfileImage } from '../services/supabase';
+import { userService } from '../services/user.service';
 
 export const RegisterPage: React.FC = () => {
   const [step, setStep] = useState<'info' | 'otp'>('info');
@@ -24,6 +26,9 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [bio, setBio] = useState('');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -95,9 +100,19 @@ export const RegisterPage: React.FC = () => {
     }
     try {
       const result = await dispatch(
-        registerUser({ name: name.trim(), email: email.trim(), password, otp: cleanOtp })
+        registerUser({ name: name.trim(), email: email.trim(), password, otp: cleanOtp, bio: bio.trim() })
       );
-      if (registerUser.fulfilled.match(result)) navigate('/onboarding', { replace: true });
+      if (registerUser.fulfilled.match(result)) {
+        if (profileImage) {
+          try {
+            const avatar = await uploadProfileImage(profileImage, result.payload.user._id);
+            await userService.updateProfile({ avatar });
+          } catch (uploadError) {
+            console.error('Profile image upload failed after registration:', uploadError);
+          }
+        }
+        navigate('/onboarding', { replace: true });
+      }
     } catch { /* Handled via Redux state */ }
   };
 
@@ -211,6 +226,49 @@ export const RegisterPage: React.FC = () => {
                     autoComplete="name"
                     className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-all"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-300">Profile photo <span className="text-slate-500">(optional)</span></label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-white/15 bg-white/5 flex items-center justify-center shrink-0">
+                      {profileImagePreview ? (
+                        <img src={profileImagePreview} alt="Profile preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5 text-slate-500" />
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+                          setLocalError('Please choose an image file up to 5 MB.');
+                          e.currentTarget.value = '';
+                          return;
+                        }
+                        setLocalError(null);
+                        setProfileImage(file);
+                        setProfileImagePreview(URL.createObjectURL(file));
+                      }}
+                      className="min-w-0 flex-1 text-xs text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-violet-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">Bio <span className="text-slate-500">(optional)</span></label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    maxLength={180}
+                    rows={2}
+                    placeholder="Tell the community about your film taste..."
+                    className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 resize-none"
+                  />
+                  <p className="text-right text-[10px] text-slate-500">{bio.length} / 180</p>
                 </div>
 
                 <div className="relative">

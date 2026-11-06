@@ -27,6 +27,7 @@ import {
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
+import { uploadProfileImage } from '../services/supabase';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
 import type { UserProfileData, CommunityPerson, ConnectionGraph, ConnectionPerson } from '../types';
@@ -54,6 +55,8 @@ export const ProfilePage: React.FC = () => {
   const [editHandle, setEditHandle] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [editServices, setEditServices] = useState<string[]>([]);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -243,6 +246,37 @@ export const ProfilePage: React.FC = () => {
       console.error('Failed to toggle follow user:', err);
     } finally {
       setFollowLoadingMap((prev) => ({ ...prev, [personId]: false }));
+    }
+  };
+
+  const handleAvatarUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setAvatarUploadError(null);
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarUploadError('Please choose an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarUploadError('Image must be 5 MB or smaller.');
+      return;
+    }
+
+    const userId = currentUser?._id || profile?._id;
+    if (!userId) {
+      setAvatarUploadError('You must be signed in to upload a profile image.');
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      setEditAvatar(await uploadProfileImage(file, userId));
+    } catch (err) {
+      console.error('Failed to upload profile image:', err);
+      setAvatarUploadError('Image upload failed. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -1204,7 +1238,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Avatar URL Preview */}
+              {/* Avatar upload and preview */}
               <div className="flex items-center gap-4">
                 <img
                   src={editAvatar || profile.avatar}
@@ -1212,7 +1246,22 @@ export const ProfilePage: React.FC = () => {
                   className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500 ring-2 ring-slate-800 shrink-0"
                 />
                 <div className="flex-1 space-y-1">
-                  <label className="text-xs font-bold text-slate-300">Avatar Image URL</label>
+                  <label className="text-xs font-bold text-slate-300">Profile Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploadingAvatar}
+                    onChange={(e) => {
+                      void handleAvatarUpload(e.target.files?.[0]);
+                      e.currentTarget.value = '';
+                    }}
+                    className="w-full text-xs text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-indigo-500 disabled:opacity-50"
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    {isUploadingAvatar ? 'Uploading...' : 'PNG, JPG, GIF, or WEBP up to 5 MB'}
+                  </p>
+                  {avatarUploadError && <p className="text-[10px] text-red-400">{avatarUploadError}</p>}
+                  <label className="text-[10px] text-slate-500">Or use an image URL</label>
                   <input
                     type="url"
                     value={editAvatar}

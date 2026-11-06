@@ -11,6 +11,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   otp: string;
+  bio?: string;
 }
 
 export interface LoginPayload {
