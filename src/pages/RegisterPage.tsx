@@ -274,12 +274,6 @@ export const RegisterPage: React.FC = () => {
                 className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300"
                 onSubmit={handleVerifyAndRegister}
               >
-                <p className="text-xs text-slate-400 text-center">
-                  Enter the 6-digit code we emailed you. Check your{' '}
-                  <span className="text-violet-300 font-semibold">Spam / Promotions</span> folder if
-                  you don't see it.
-                </p>
-
                 <input
                   type="text"
                   inputMode="numeric"
