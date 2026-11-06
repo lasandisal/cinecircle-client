@@ -74,7 +74,7 @@ export const Footer: React.FC = () => {
                 Node.js + Express
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-900 border border-slate-800 text-cyan-400">
-                MongoDB Atlas
+                PostgreSQL + Prisma
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-900 border border-slate-800 text-emerald-400">
                 Socket.io

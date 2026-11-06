@@ -21,6 +21,12 @@ export interface TitleListResponse {
   };
 }
 
+export interface TrendingFeed {
+  titles: Title[];
+  /** Where the list came from, so the UI can label it honestly. */
+  source: 'tmdb' | 'catalogue';
+}
+
 export const titleService = {
   /**
    * Fetch catalogue titles with multi-dimensional filtering
@@ -31,11 +37,22 @@ export const titleService = {
   },
 
   /**
-   * Fetch trending titles
+   * Fetch trending titles plus their provenance.
+   */
+  async getTrendingFeed(mediaType: 'all' | 'movie' | 'tv' = 'all'): Promise<TrendingFeed> {
+    const res = await api.get('/titles/trending', { params: { mediaType } });
+    return {
+      titles: res.data.data.titles || [],
+      source: res.data.data.source === 'tmdb' ? 'tmdb' : 'catalogue',
+    };
+  },
+
+  /**
+   * Fetch trending titles (titles only).
    */
   async getTrending(mediaType: 'all' | 'movie' | 'tv' = 'all'): Promise<Title[]> {
-    const res = await api.get('/titles/trending', { params: { mediaType } });
-    return res.data.data.titles;
+    const { titles } = await this.getTrendingFeed(mediaType);
+    return titles;
   },
 
   /**

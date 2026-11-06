@@ -3,6 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { Sparkles, Clock, Compass, Film, Tv, Star, ArrowRight, Wand2, ShieldAlert, Loader2 } from 'lucide-react';
 import { recommendationService, type RecommendationResult } from '../services/recommendation.service';
 import { titleService } from '../services/title.service';
+import { TitlePoster } from '../components/common/TitlePoster';
 import { useAppSelector } from '../hooks/useAppRedux';
 
 const MOODS = [
@@ -33,6 +34,7 @@ export const SoloRecommendationPage: React.FC = () => {
 
   const [shortlist, setShortlist] = useState<RecommendationResult[]>([]);
   const [trending, setTrending] = useState<any[]>([]);
+  const [trendingSource, setTrendingSource] = useState<'tmdb' | 'catalogue'>('catalogue');
   const [championPick, setChampionPick] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fatigueActive, setFatigueActive] = useState<boolean>(false);
@@ -60,8 +62,9 @@ export const SoloRecommendationPage: React.FC = () => {
   const fetchTrending = async () => {
     try {
       const tmdbType = mediaType === 'film' ? 'movie' : mediaType;
-      const data = await titleService.getTrending(tmdbType);
-      setTrending(data || []);
+      const { titles, source } = await titleService.getTrendingFeed(tmdbType);
+      setTrending(titles || []);
+      setTrendingSource(source);
     } catch (err) {
       console.error('Failed to load trending titles:', err);
     }
@@ -99,14 +102,14 @@ export const SoloRecommendationPage: React.FC = () => {
           <>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Popular in Catalogue</span>
+              <span>{trendingSource === 'tmdb' ? 'Live popularity from TMDB' : 'Top rated in catalogue'}</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white font-['Outfit']">
-              Trending Now
+              {trendingSource === 'tmdb' ? 'Trending This Week' : 'Popular Titles'}
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm max-w-lg mx-auto">
-              Discover what&apos;s popular across the CineCircle catalogue. Sign in to get
-              personalized recommendations based on your taste and watch history.
+              Real titles people are watching right now. Sign in to get personalized
+              recommendations based on your taste and watch history.
             </p>
           </>
         ) : (
@@ -237,10 +240,11 @@ export const SoloRecommendationPage: React.FC = () => {
       {isAuthenticated && user && championPick && (
         <div className="bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-300">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <img
+            <TitlePoster
               src={championPick.posterUrl}
               alt={championPick.name}
               className="w-32 h-48 object-cover rounded-2xl shadow-xl ring-2 ring-amber-500/30"
+              iconClassName="w-10 h-10"
             />
             <div className="space-y-3 flex-1 text-center md:text-left">
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1">
@@ -277,7 +281,7 @@ export const SoloRecommendationPage: React.FC = () => {
               <>
                 <span>Trending Titles</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-600/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
-                  {displayList.length} in catalogue
+                  {displayList.length} titles
                 </span>
               </>
             ) : (
@@ -331,10 +335,11 @@ export const SoloRecommendationPage: React.FC = () => {
                 <div>
                   {/* Backdrop / Poster Container */}
                   <div className="relative h-44 w-full bg-slate-950 overflow-hidden">
-                    <img
+                    <TitlePoster
                       src={title.backdropUrl || title.posterUrl}
                       alt={title.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      iconClassName="w-8 h-8"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent"></div>
 
@@ -350,8 +355,12 @@ export const SoloRecommendationPage: React.FC = () => {
                       </h4>
                       <div className="flex items-center gap-2 text-[11px] text-slate-300 drop-shadow">
                         <span>{title.releaseYear}</span>
-                        <span>•</span>
-                        <span>{title.runtimeMinutes}m</span>
+                        {title.runtimeMinutes > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{title.runtimeMinutes}m</span>
+                          </>
+                        )}
                         {title.voteAverage ? (
                           <>
                             <span>•</span>

@@ -124,9 +124,11 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
     const loadTitles = async () => {
       try {
         setLoadingTitles(true);
-        const data = await titleService.getTrending('all');
+        // Onboarding seeds a taste profile by title id, so use the local
+        // catalogue (every row has an id) rather than TMDB-only trending hits.
+        const data = await titleService.getTitles({ limit: 12 });
         if (isMounted) {
-          setTrendingTitles(data.slice(0, 10));
+          setTrendingTitles(data.titles.slice(0, 10));
         }
       } catch (err) {
         console.error('Failed to load seed titles:', err);

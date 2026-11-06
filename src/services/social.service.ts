@@ -26,10 +26,7 @@ export interface ActiveCircleItem {
 
 export const socialService = {
   /**
-   * Get live community feed posts and discussion polls from MongoDB
-   */
-  /**
-   * Get live community feed posts and discussion polls from MongoDB.
+   * Get live community feed posts and discussion polls.
    *
    * `filter: 'following'` is a real server-side restriction to people the
    * viewer actually follows - previously the "Following Activity" tab sent no
