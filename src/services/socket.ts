@@ -28,6 +28,10 @@ export interface SessionFinalizedPayload {
   aiPitchGenerated: boolean;
 }
 
+export interface PresencePayload {
+  userId: string;
+}
+
 /**
  * Socket.IO client for CineCircle group rooms.
  *
@@ -166,6 +170,14 @@ class SocketService {
 
   onSessionError(handler: (payload: { event: string; error: string }) => void): void {
     this.socket?.on('session:error', handler);
+  }
+
+  onPresenceOnline(handler: (payload: PresencePayload) => void): void {
+    this.socket?.on('presence:online', handler);
+  }
+
+  onPresenceOffline(handler: (payload: PresencePayload) => void): void {
+    this.socket?.on('presence:offline', handler);
   }
 
   /** Remove every listener this page registered, then disconnect. */

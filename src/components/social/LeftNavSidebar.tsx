@@ -13,6 +13,7 @@ import {
 import { StreamingBadge } from '../common/StreamingBadge';
 import { useAppSelector } from '../../hooks/useAppRedux';
 import { userService } from '../../services/user.service';
+import { socketService } from '../../services/socket';
 
 interface LeftNavSidebarProps {
   activeTab: string;
@@ -21,6 +22,7 @@ interface LeftNavSidebarProps {
 
 export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setActiveTab }) => {
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+  const [isOnline, setIsOnline] = useState(false);
 
   // Real counts for this member. Previously these were the literals 42 / 18 / 6.
   const [stats, setStats] = useState({
@@ -56,6 +58,42 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
     };
   }, [isAuthenticated, user?._id]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !user?._id) {
+      setIsOnline(false);
+      return;
+    }
+
+    const socket = socketService.connect();
+    if (!socket) {
+      setIsOnline(false);
+      return;
+    }
+
+    const handleConnect = () => setIsOnline(true);
+    const handleDisconnect = () => setIsOnline(false);
+    const handleOnline = ({ userId }: { userId: string }) => {
+      if (userId === user._id) setIsOnline(true);
+    };
+    const handleOffline = ({ userId }: { userId: string }) => {
+      if (userId === user._id) setIsOnline(false);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socketService.onPresenceOnline(handleOnline);
+    socketService.onPresenceOffline(handleOffline);
+
+    if (socket.connected) setIsOnline(true);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('presence:online', handleOnline);
+      socket.off('presence:offline', handleOffline);
+    };
+  }, [isAuthenticated, user?._id]);
+
   return (
     <aside className="w-64 shrink-0 space-y-6 hidden lg:block">
       {/* Profile Snippet Card or Guest Prompt */}
@@ -76,7 +114,12 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
                   </div>
                 )}
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
+              <span
+                title={isOnline ? 'Online' : 'Offline'}
+                className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 border-2 border-slate-950 rounded-full ${
+                  isOnline ? 'bg-emerald-500' : 'bg-slate-500'
+                }`}
+              />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
