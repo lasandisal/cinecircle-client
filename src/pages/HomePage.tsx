@@ -53,8 +53,8 @@ const GuestHero: React.FC<{ featured?: Title; loading: boolean }> = ({ featured,
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900 min-h-[440px] sm:min-h-[500px] flex items-end shadow-2xl shadow-black/40"
-      style={{ backgroundImage: heroBg, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+      className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900 min-h-[var(--guest-hero-min-h)] sm:min-h-[500px] flex items-end shadow-2xl shadow-black/40 guest-hero"
+      style={{ backgroundImage: heroBg }}
     >
       {/* Gradient overlays */}
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-slate-950/50" />

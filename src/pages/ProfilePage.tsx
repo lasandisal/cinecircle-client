@@ -416,17 +416,13 @@ export const ProfilePage: React.FC = () => {
         <div className="absolute -bottom-10 left-10 w-72 h-72 bg-gradient-to-tr from-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10">
-          {/* Avatar with Instagram Gradient Ring */}
+          {/* Profile avatar */}
           <div className="relative group shrink-0">
-            <div className="p-1 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-xl shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-300">
-              <div className="p-1 rounded-full bg-slate-950">
-                <img
-                  src={profile.avatar}
-                  alt={profile.name}
-                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover shadow-inner"
-                />
-              </div>
-            </div>
+            <img
+              src={profile.avatar}
+              alt={profile.name}
+              className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover shadow-inner group-hover:scale-105 transition-transform duration-300"
+            />
             {profile.role === 'admin' && (
               <span
                 title="Verified CineCircle Creator & Admin"
@@ -467,7 +463,7 @@ export const ProfilePage: React.FC = () => {
                   )}
                   {isSelf ? (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
-                      <Check className="w-2.5 h-2.5" /> Real Account
+                      <ShieldCheck className="w-2.5 h-2.5" /> Verified email
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700">

@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Loader2,
   CheckCircle2,
+  ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppRedux';
@@ -188,7 +189,7 @@ export const RegisterPage: React.FC = () => {
                   : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
               }`}>
                 {step === 'otp'
-                  ? <CheckCircle2 className="w-3.5 h-3.5" />
+                  ? <ShieldCheck className="w-3.5 h-3.5" />
                   : <span className="w-4 h-4 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px]">1</span>}
                 Account Info
               </div>
