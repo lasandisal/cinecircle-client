@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import axios from 'axios';
 import { Sparkles, Clock, Compass, Film, Tv, Star, ArrowRight, Wand2, ShieldAlert, Loader2 } from 'lucide-react';
 import { recommendationService, type RecommendationResult } from '../services/recommendation.service';
 import { titleService } from '../services/title.service';
@@ -31,6 +32,7 @@ export const SoloRecommendationPage: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState<number>(initialState.selectedDuration || 90);
   const [mediaType, setMediaType] = useState<'all' | 'film' | 'tv'>('all');
   const [aiPrompt, setAiPrompt] = useState<string>(initialState.aiPrompt || '');
+  const [recommendationMode, setRecommendationMode] = useState<'preferences' | 'prompt'>('preferences');
 
   const [shortlist, setShortlist] = useState<RecommendationResult[]>([]);
   const [trending, setTrending] = useState<any[]>([]);
@@ -38,20 +40,31 @@ export const SoloRecommendationPage: React.FC = () => {
   const [championPick, setChampionPick] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fatigueActive, setFatigueActive] = useState<boolean>(false);
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [hasAppliedFilters, setHasAppliedFilters] = useState(true);
 
   const fetchRecommendations = async () => {
     setLoading(true);
     setChampionPick(null);
+    setRecommendationError(null);
     try {
       const data = await recommendationService.getSoloRecommendations({
         mood: selectedMood,
-        duration: selectedDuration,
+        duration: selectedDuration === 200 ? 0 : selectedDuration,
         type: mediaType === 'all' ? undefined : mediaType,
         aiPrompt: aiPrompt.trim() || undefined,
       });
       setShortlist(data.shortlist || []);
+      setHasAppliedFilters(true);
     } catch (err) {
       console.error('Failed to compute recommendations:', err);
+      setRecommendationError(
+        axios.isAxiosError(err)
+          ? err.response?.data?.error || err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not load recommendations. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -60,6 +73,7 @@ export const SoloRecommendationPage: React.FC = () => {
   // When not signed in, show trending/popular titles from the catalogue API
   // instead of personalized recommendations (which require a taste profile).
   const fetchTrending = async () => {
+    setRecommendationError(null);
     try {
       const tmdbType = mediaType === 'film' ? 'movie' : mediaType;
       const { titles, source } = await titleService.getTrendingFeed(tmdbType);
@@ -67,6 +81,13 @@ export const SoloRecommendationPage: React.FC = () => {
       setTrendingSource(source);
     } catch (err) {
       console.error('Failed to load trending titles:', err);
+      setRecommendationError(
+        axios.isAxiosError(err)
+          ? err.response?.data?.error || err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not load titles. Please try again.'
+      );
     }
   };
 
@@ -76,7 +97,17 @@ export const SoloRecommendationPage: React.FC = () => {
     } else {
       fetchTrending();
     }
-  }, [isAuthenticated, user, selectedMood, selectedDuration, mediaType]);
+  }, [isAuthenticated, user]);
+
+  const handleApplyFilters = () => {
+    setHasAppliedFilters(false);
+    fetchRecommendations();
+  };
+
+  const handlePromptSearch = () => {
+    if (!aiPrompt.trim()) return;
+    fetchRecommendations();
+  };
 
   const handleFatigueBreak = async () => {
     setFatigueActive(true);
@@ -131,6 +162,38 @@ export const SoloRecommendationPage: React.FC = () => {
       {/* Control Panel Card (only when signed in) */}
       {isAuthenticated && user && (
         <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6 shadow-xl backdrop-blur-sm">
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              How do you want to decide?
+            </p>
+            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setRecommendationMode('preferences')}
+                className={`py-2.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                  recommendationMode === 'preferences'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Choose preferences
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecommendationMode('prompt')}
+                className={`py-2.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                  recommendationMode === 'prompt'
+                    ? 'bg-violet-600 text-white shadow-md shadow-violet-600/25'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Describe it yourself
+              </button>
+            </div>
+          </div>
+
+          {recommendationMode === 'preferences' ? (
+            <>
           {/* Mood and Duration Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Mood Selector */}
@@ -212,27 +275,49 @@ export const SoloRecommendationPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Natural-language custom prompt bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+            <p className="text-[11px] text-slate-500">
+              Choose your filters, then search the catalogue.
+            </p>
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              disabled={loading}
+              className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-all"
+            >
+              {hasAppliedFilters ? 'Apply Filters' : 'Searching...'}
+            </button>
+          </div>
+            </>
+          ) : (
+            <>
+          {/* Natural-language custom prompt */}
           <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Wand2 className="w-4 h-4 text-cyan-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Or type a custom vibe prompt: e.g. 'Cozy 90s thriller with rainfall and jazz'..."
+                placeholder="Describe a film or series: e.g. 'A cozy 90s thriller series with rainfall and jazz'..."
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fetchRecommendations()}
+                onKeyDown={(e) => e.key === 'Enter' && handlePromptSearch()}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
             <button
-              onClick={fetchRecommendations}
+              onClick={handlePromptSearch}
+              disabled={!aiPrompt.trim() || loading}
               className="py-2.5 px-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-1.5 transition-all shrink-0"
             >
-              <span>Analyze & Filter</span>
+              <span>Search Prompt</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
+          <p className="text-[11px] text-slate-500">
+            Describe any film or TV series you want, and CineCircle will find matching titles.
+          </p>
+            </>
+          )}
         </div>
       )}
 
@@ -306,7 +391,19 @@ export const SoloRecommendationPage: React.FC = () => {
           )}
         </div>
 
-        {loading && isAuthenticated ? (
+        {recommendationError ? (
+          <div className="p-8 rounded-2xl bg-rose-950/30 border border-rose-800/60 text-center space-y-3">
+            <p className="text-sm text-rose-300 font-semibold">Unable to load recommendations</p>
+            <p className="text-xs text-rose-200/80 break-words">{recommendationError}</p>
+            <button
+              type="button"
+              onClick={isTrendingMode ? fetchTrending : fetchRecommendations}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        ) : loading && isAuthenticated ? (
           <div className="p-16 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
             <p className="text-xs text-slate-400">Computing your recommendations...</p>
