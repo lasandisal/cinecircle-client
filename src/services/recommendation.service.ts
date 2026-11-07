@@ -26,7 +26,19 @@ export const recommendationService = {
     duration?: number;
     type?: string;
     aiPrompt?: string;
-  }): Promise<{ shortlist: RecommendationResult[]; criteria: any }> {
+  }): Promise<{
+    shortlist: RecommendationResult[];
+    criteria: {
+      mood: string;
+      maxRuntime: number;
+      targetGenres: string[];
+      targetKeywords: string[];
+      requestedType: 'film' | 'tv' | null;
+      rationaleSource: 'gemini' | 'fallback' | 'none';
+      recommendationSource: 'tmdb' | 'catalogue' | 'mixed';
+      queryDurationMs?: number;
+    };
+  }> {
     const res = await api.post('/recommendations/solo', params);
     return res.data.data;
   },

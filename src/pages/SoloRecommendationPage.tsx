@@ -41,6 +41,8 @@ export const SoloRecommendationPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [fatigueActive, setFatigueActive] = useState<boolean>(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [recommendationSource, setRecommendationSource] = useState<'gemini' | 'fallback' | 'none'>('none');
+  const [catalogueSource, setCatalogueSource] = useState<'tmdb' | 'catalogue'>('catalogue');
   const [hasAppliedFilters, setHasAppliedFilters] = useState(true);
 
   const fetchRecommendations = async () => {
@@ -55,6 +57,8 @@ export const SoloRecommendationPage: React.FC = () => {
         aiPrompt: aiPrompt.trim() || undefined,
       });
       setShortlist(data.shortlist || []);
+      setRecommendationSource(data.criteria?.rationaleSource || 'none');
+      setCatalogueSource(data.criteria?.recommendationSource || 'catalogue');
       setHasAppliedFilters(true);
     } catch (err) {
       console.error('Failed to compute recommendations:', err);
@@ -147,13 +151,21 @@ export const SoloRecommendationPage: React.FC = () => {
           <>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Real-time Scoring Algorithm</span>
+              <span>
+                {recommendationSource === 'gemini'
+                  ? `AI-assisted ${catalogueSource === 'tmdb' ? 'TMDB' : 'catalogue'} search`
+                  : catalogueSource === 'tmdb'
+                    ? 'TMDB discovery + CineCircle matching'
+                    : recommendationSource === 'fallback'
+                      ? 'CineCircle smart matching'
+                      : 'Real-time Scoring Algorithm'}
+              </span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white font-['Outfit']">
               Solo Decision Engine
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm max-w-lg mx-auto">
-              Tailored shortlists calculated from real database titles, your current mood, time limit and smart AI matching.
+              Tailored shortlists from TMDB's live catalogue, your current mood, time limit and CineCircle matching.
             </p>
           </>
         )}

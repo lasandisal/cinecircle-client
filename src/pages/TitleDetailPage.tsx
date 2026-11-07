@@ -779,9 +779,9 @@ export const TitleDetailPage: React.FC = () => {
                   </span>
                 )}
                 {title.voteAverage ? (
-                  <span className="flex items-center gap-1.5 text-amber-400 font-bold">
+                  <span className="flex items-center gap-1.5 text-amber-400 font-bold" title="Rating provided by TMDB">
                     <Star className="w-3.5 h-3.5 fill-amber-400" />
-                    {title.voteAverage} / 10
+                    TMDB {title.voteAverage} / 10
                   </span>
                 ) : null}
               </div>
