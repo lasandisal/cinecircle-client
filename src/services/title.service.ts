@@ -183,6 +183,7 @@ export const titleService = {
       episodeRef?: string;
       previewUrl?: string;
       albumArtUrl?: string;
+      appleMusicUrl?: string;
       spotifyUrl?: string;
     }
   ) {
@@ -190,4 +191,3 @@ export const titleService = {
     return res.data.data.soundtrack;
   },
 };
-

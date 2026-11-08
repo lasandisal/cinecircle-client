@@ -264,7 +264,7 @@ export const TitleDetailPage: React.FC = () => {
         episodeRef: addSongSceneRef.trim() || undefined,
         previewUrl: selectedAddSong.previewUrl,
         albumArtUrl: selectedAddSong.albumArtUrl,
-        spotifyUrl: selectedAddSong.spotifyUrl,
+        appleMusicUrl: selectedAddSong.appleMusicUrl,
       };
       const created = await titleService.addSoundtrack(title?._id || id!, payload);
       if (created) {
@@ -1419,7 +1419,7 @@ export const TitleDetailPage: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 group ${
+                        className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
                           isPlaying
                             ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
                             : 'bg-slate-950/60 border-slate-800/70 hover:border-slate-700/90 hover:bg-slate-950/90'
@@ -1499,7 +1499,7 @@ export const TitleDetailPage: React.FC = () => {
                         </div>
 
                         {/* Right: Audio Action Controls */}
-                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto">
                           {track.previewUrl ? (
                             <button
                               type="button"
@@ -1513,12 +1513,12 @@ export const TitleDetailPage: React.FC = () => {
                               {isPlaying ? (
                                 <>
                                   <Pause className="w-3.5 h-3.5 fill-current" />
-                                  <span className="hidden xs:inline">Pause</span>
+                                  <span className="hidden sm:inline">Pause</span>
                                 </>
                               ) : (
                                 <>
                                   <Play className="w-3.5 h-3.5 fill-current" />
-                                  <span className="hidden xs:inline">30s Sample</span>
+                                  <span className="hidden sm:inline">30s Sample</span>
                                 </>
                               )}
                             </button>
@@ -1544,12 +1544,9 @@ export const TitleDetailPage: React.FC = () => {
 
                           {/* Spotify Launch Button */}
                           <a
-                            href={
-                              track.spotifyUrl ||
-                              `https://open.spotify.com/search/${encodeURIComponent(
-                                track.songName + ' ' + track.artist
-                              )}`
-                            }
+                            href={`https://open.spotify.com/search/${encodeURIComponent(
+                              track.songName + ' ' + track.artist
+                            )}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Listen on Spotify"
