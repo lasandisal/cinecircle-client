@@ -42,7 +42,7 @@ export const SoloRecommendationPage: React.FC = () => {
   const [fatigueActive, setFatigueActive] = useState<boolean>(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
   const [recommendationSource, setRecommendationSource] = useState<'gemini' | 'fallback' | 'none'>('none');
-  const [catalogueSource, setCatalogueSource] = useState<'tmdb' | 'catalogue'>('catalogue');
+  const [catalogueSource, setCatalogueSource] = useState<'tmdb' | 'catalogue' | 'mixed'>('catalogue');
   const [hasAppliedFilters, setHasAppliedFilters] = useState(true);
 
   const fetchRecommendations = async () => {
@@ -156,6 +156,8 @@ export const SoloRecommendationPage: React.FC = () => {
                   ? `AI-assisted ${catalogueSource === 'tmdb' ? 'TMDB' : 'catalogue'} search`
                   : catalogueSource === 'tmdb'
                     ? 'TMDB discovery + CineCircle matching'
+                    : catalogueSource === 'mixed'
+                      ? 'TMDB + CineCircle catalogue matching'
                     : recommendationSource === 'fallback'
                       ? 'CineCircle smart matching'
                       : 'Real-time Scoring Algorithm'}

@@ -19,7 +19,8 @@ import { NotificationsDropdown } from './NotificationsDropdown';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux';
 import { logout } from '../../store/slices/authSlice';
 import { titleService } from '../../services/title.service';
-import type { Title } from '../../types';
+import { userService } from '../../services/user.service';
+import type { Title, CommunityPerson } from '../../types';
 import { StreamingBadge } from './StreamingBadge';
 
 export const Navbar: React.FC = () => {
@@ -29,12 +30,14 @@ export const Navbar: React.FC = () => {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Title[]>([]);
+  const [userResults, setUserResults] = useState<CommunityPerson[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchRequestRef = useRef(0);
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -73,23 +76,39 @@ export const Navbar: React.FC = () => {
 
   // Debounced search logic
   const handleSearch = useCallback(async (query: string) => {
-    if (!query.trim() || query.trim().length < 2) {
+    const normalizedQuery = query.trim();
+    const requestId = ++searchRequestRef.current;
+
+    if (!normalizedQuery || normalizedQuery.length < 2) {
       setSearchResults([]);
+      setUserResults([]);
       setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    try {
-      const results = await titleService.search(query.trim());
-      setSearchResults(results);
-    } catch (err) {
-      console.error('Search error:', err);
+    const [titleResult, userResult] = await Promise.allSettled([
+      titleService.search(normalizedQuery),
+      isAuthenticated ? userService.searchPeople(normalizedQuery) : Promise.resolve([] as CommunityPerson[]),
+    ]);
+
+    if (requestId !== searchRequestRef.current) return;
+
+    if (titleResult.status === 'fulfilled') {
+      setSearchResults(titleResult.value);
+    } else {
+      console.error('[Navbar search] Title search failed:', titleResult.reason);
       setSearchResults([]);
-    } finally {
-      setIsSearching(false);
     }
-  }, []);
+
+    if (userResult.status === 'fulfilled') {
+      setUserResults(userResult.value);
+    } else {
+      console.error('[Navbar search] Member search failed:', userResult.reason);
+      setUserResults([]);
+    }
+    setIsSearching(false);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -97,6 +116,7 @@ export const Navbar: React.FC = () => {
         handleSearch(searchQuery);
       } else {
         setSearchResults([]);
+        setUserResults([]);
       }
     }, 250);
 
@@ -147,7 +167,7 @@ export const Navbar: React.FC = () => {
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
-              placeholder="Search movies, TV shows, genres..."
+              placeholder="Search movies, TV shows, members..."
               className="w-full pl-8 pr-16 py-1.5 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors"
             />
 
@@ -175,7 +195,7 @@ export const Navbar: React.FC = () => {
                   <span>
                     {isSearching
                       ? 'Searching catalogue...'
-                      : `${searchResults.length} title${searchResults.length === 1 ? '' : 's'} found`}
+                      : `${searchResults.length} title${searchResults.length === 1 ? '' : 's'} • ${userResults.length} member${userResults.length === 1 ? '' : 's'} found`}
                   </span>
                   {isSearching && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
                 </div>
@@ -256,6 +276,64 @@ export const Navbar: React.FC = () => {
                       </p>
                     </div>
                   ) : null}
+
+                  {/* Member results section */}
+                  {userResults.length > 0 && (
+                    <>
+                      <div className="px-3 py-2 border-b border-slate-800">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
+                      </div>
+                      {userResults.map((person) => (
+                        <Link
+                          key={person.id}
+                          to={`/profile/${person.id}`}
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setMobileSearchOpen(false);
+                            setSearchQuery('');
+                          }}
+                          className="w-full p-2.5 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
+                            {person.avatar ? (
+                              <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
+                                {person.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                                {person.name}
+                              </span>
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
+                                {person.handle}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                              <span>{person.stats.watchedCount} watched</span>
+                              {person.isFollowing && (
+                                <span className="text-indigo-400">• Following</span>
+                              )}
+                            </div>
+                          </div>
+                          {person.isFollowing ? (
+                            <span className="text-[10px] text-slate-500">Following</span>
+                          ) : null}
+                        </Link>
+                      ))}
+                      {userResults.length === 0 && searchResults.length === 0 && !isSearching && (
+                        <div className="p-6 text-center space-y-1">
+                          <p className="text-xs text-slate-300 font-medium">No members found</p>
+                          <p className="text-[11px] text-slate-500">
+                            Try searching for a name or handle
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -452,7 +530,7 @@ export const Navbar: React.FC = () => {
               autoFocus
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search films, shows, or genres..."
+              placeholder="Search films, shows, or members..."
               className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
             {searchQuery && (
@@ -477,36 +555,83 @@ export const Navbar: React.FC = () => {
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
                   <span>Searching...</span>
                 </div>
-              ) : searchResults.length > 0 ? (
-                searchResults.map((title) => (
-                  <button
-                    key={title._id || title.tmdbId}
-                    onClick={() => handleSelectTitle(title)}
-                    className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
-                  >
-                    <div className="w-9 h-12 rounded bg-slate-950 overflow-hidden shrink-0">
-                      {title.posterUrl ? (
-                        <img
-                          src={title.posterUrl}
-                          alt={title.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-600">
-                          <Film className="w-3 h-3" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-white truncate">{title.name}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {title.releaseYear} • {title.type === 'film' ? 'Film' : 'TV'}
-                      </p>
-                    </div>
-                  </button>
-                ))
+              ) : searchResults.length > 0 || userResults.length > 0 ? (
+                <>
+                  {searchResults.length > 0 && (
+                    <>
+                      <div className="px-3 py-2 border-b border-slate-800">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Titles</p>
+                      </div>
+                      {searchResults.map((title) => (
+                        <button
+                          key={title._id || title.tmdbId}
+                          onClick={() => handleSelectTitle(title)}
+                          className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                        >
+                          <div className="w-9 h-12 rounded bg-slate-950 overflow-hidden shrink-0">
+                            {title.posterUrl ? (
+                              <img
+                                src={title.posterUrl}
+                                alt={title.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                <Film className="w-3 h-3" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-white truncate">{title.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {title.releaseYear} • {title.type === 'film' ? 'Film' : 'TV'}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {userResults.length > 0 && (
+                    <>
+                      <div className="px-3 py-2 border-b border-slate-800">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
+                      </div>
+                      {userResults.map((person) => (
+                        <Link
+                          key={person.id}
+                          to={`/profile/${person.id}`}
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setMobileSearchOpen(false);
+                            setSearchQuery('');
+                          }}
+                          className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
+                            {person.avatar ? (
+                              <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
+                                {person.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-white truncate">{person.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {person.handle} • {person.stats.watchedCount} watched
+                            </p>
+                          </div>
+                          {person.isFollowing ? (
+                            <span className="text-[10px] text-slate-500">Following</span>
+                          ) : null}
+                        </Link>
+                      ))}
+                    </>
+                  )}
+                </>
               ) : (
-                <div className="p-4 text-center text-xs text-slate-400">No titles found</div>
+                <div className="p-4 text-center text-xs text-slate-400">No results found</div>
               )}
             </div>
           )}
