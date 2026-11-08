@@ -12,8 +12,8 @@ import { userService } from '../../services/user.service';
 export const RightSocialSidebar: React.FC = () => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
 
-  const [following, setFollowing] = useState<Record<string, boolean>>({});
-  const [pendingFollow, setPendingFollow] = useState<string | null>(null);
+  const [connectionRequests, setConnectionRequests] = useState<Record<string, boolean>>({});
+  const [pendingConnection, setPendingConnection] = useState<string | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [trendingTitles, setTrendingTitles] = useState<Title[]>([]);
   const [trendingSource, setTrendingSource] = useState<'tmdb' | 'catalogue'>('catalogue');
@@ -56,18 +56,16 @@ export const RightSocialSidebar: React.FC = () => {
 
   // Keyed by user id, not handle. Handles are optional and derived from the
   // email, so two members could collide on the same key.
-  const toggleFollow = async (userId: string) => {
-    if (pendingFollow) return;
-    setPendingFollow(userId);
+  const requestConnection = async (userId: string) => {
+    if (pendingConnection || connectionRequests[userId]) return;
+    setPendingConnection(userId);
     try {
-      const res = await userService.toggleFollow(userId);
-      setFollowing((prev) => ({ ...prev, [userId]: res.following }));
+      await userService.requestConnection(userId);
+      setConnectionRequests((prev) => ({ ...prev, [userId]: true }));
     } catch (err) {
-      // Do not optimistically flip the button on failure - a failed request
-      // previously turned the button green as if the follow had succeeded.
-      console.error('Failed to update follow:', err);
+      console.error('Failed to send connection request:', err);
     } finally {
-      setPendingFollow(null);
+      setPendingConnection(null);
     }
   };
 
@@ -112,8 +110,8 @@ export const RightSocialSidebar: React.FC = () => {
             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
               Similar Taste Profiles
             </h4>
-            <Link to="/profile" className="text-[10px] text-indigo-400 font-semibold hover:underline">
-              View Profile
+            <Link to="/profile" className="text-[10px] text-slate-400 hover:text-indigo-300 transition-colors">
+              See all
             </Link>
           </div>
 
@@ -124,37 +122,18 @@ export const RightSocialSidebar: React.FC = () => {
               </p>
             ) : (
               tasteMatches.map((user) => (
-                <div key={user.id} className="flex items-center justify-between gap-3">
-                  <Link to={`/profile/${user.id}`} className="flex items-center gap-2.5 min-w-0 group">
+                <div key={user.id} className="flex items-center gap-2.5 min-w-0">
+                  <Link to={`/profile/${user.id}`} className="flex items-center gap-2.5 min-w-0 flex-1 group">
                     <img
                       src={user.avatar}
                       alt={user.name}
-                      className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-800 group-hover:ring-indigo-500 transition-all"
+                      className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-800 group-hover:ring-indigo-500 transition-all shrink-0"
                     />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors truncate">
+                      <p className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors truncate">
                           {user.name}
-                        </p>
-                        {/* Real compatibility, or an honest no-data state.
-                            Previously this was 84 + ((idx * 5) % 15). */}
-                        {user.matchScore != null ? (
-                          <span
-                            className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20"
-                            title={user.matchExplanation}
-                          >
-                            {user.matchScore}% match
-                          </span>
-                        ) : (
-                          <span
-                            className="text-[9px] font-bold text-slate-500 bg-slate-800/60 px-1 py-0.2 rounded border border-slate-700"
-                            title={user.matchExplanation}
-                          >
-                            no data
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 truncate">
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate mt-0.5">
                         {user.mutualCount > 0
                           ? `${user.mutualCount} mutual film${user.mutualCount === 1 ? '' : 's'}`
                           : 'no shared titles yet'}
@@ -162,27 +141,37 @@ export const RightSocialSidebar: React.FC = () => {
                     </div>
                   </Link>
 
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {user.matchScore != null && (
+                      <span
+                        className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-1.5 py-1 rounded-md"
+                        title={user.matchExplanation}
+                      >
+                        {user.matchScore}%
+                      </span>
+                    )}
                   <button
-                    onClick={() => toggleFollow(user.id)}
-                    disabled={pendingFollow === user.id}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all disabled:opacity-50 ${
-                      following[user.id]
+                    onClick={() => requestConnection(user.id)}
+                    disabled={pendingConnection === user.id || connectionRequests[user.id]}
+                    className={`px-2 py-1.5 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all disabled:opacity-50 ${
+                      connectionRequests[user.id]
                         ? 'bg-slate-800 text-slate-300 border border-slate-700'
                         : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30'
                     }`}
                   >
-                    {following[user.id] ? (
+                    {connectionRequests[user.id] ? (
                       <>
                         <Check className="w-3 h-3 text-emerald-400" />
-                        <span>Followed</span>
+                        <span className="hidden 2xl:inline">Request Sent</span>
                       </>
                     ) : (
                       <>
                         <UserPlus className="w-3 h-3" />
-                        <span>Follow</span>
+                        <span className="hidden 2xl:inline">Connect</span>
                       </>
                     )}
                   </button>
+                  </div>
                 </div>
               ))
             )}

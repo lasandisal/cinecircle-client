@@ -110,4 +110,22 @@
     background-position: center;
     background-repeat: no-repeat;
   }
+
+  .auth-background {
+    background-image: url('/auth-bg.jpg');
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  @media (max-width: 1023px) {
+    .auth-background {
+      background-image: url('/auth-bg-tablet.jpg');
+    }
+  }
+
+  @media (max-width: 639px) {
+    .auth-background {
+      background-image: url('/auth-bg-mobile.jpg');
+    }
+  }
 }

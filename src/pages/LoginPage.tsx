@@ -105,10 +105,7 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden bg-black">
       {/* Full-screen TV series collage background */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/auth-bg.jpg')" }}
-      />
+      <div className="auth-background absolute inset-0 bg-cover bg-center" />
       {/* Layered gradients — heavy on the left so card stays readable */}
       <div className="absolute inset-0 bg-black/55" />
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />

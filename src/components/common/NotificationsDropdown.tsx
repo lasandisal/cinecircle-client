@@ -135,11 +135,15 @@ export const NotificationsDropdown: React.FC = () => {
         title="Notifications"
         className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all relative active:scale-95 cursor-pointer ${
           isOpen
-            ? 'bg-slate-800 border-indigo-500/50 text-white'
-            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            ? unreadCount > 0
+              ? 'bg-rose-500/15 border-rose-500/60 text-rose-300'
+              : 'bg-slate-800 border-indigo-500/50 text-white'
+            : unreadCount > 0
+              ? 'bg-rose-500/10 border-rose-500/50 text-rose-300 hover:bg-rose-500/20'
+              : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
         }`}
       >
-        <Bell className="w-4 h-4" />
+        <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-rose-300' : ''}`} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-r from-red-600 to-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-slate-950 shadow-md animate-pulse">
             {unreadCount}
