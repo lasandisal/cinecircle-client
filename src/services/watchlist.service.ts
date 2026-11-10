@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet, invalidateCache } from './requestCache';
 import type { Title } from '../types';
 
 export interface WatchlistItem {
@@ -27,7 +28,7 @@ export const watchlistService = {
   async getWatchlist(
     status?: 'all' | 'watched' | 'want_to_watch'
   ): Promise<{ items: WatchlistItem[]; counts: WatchlistCounts }> {
-    const res = await api.get('/watchlist', { params: { status } });
+    const res = await cachedGet('/watchlist', { params: { status } }, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
     return {
       items: res.data.data.watchlist || [],
       counts: res.data.data.counts || { total: 0, watched: 0, wantToWatch: 0 },
@@ -39,6 +40,7 @@ export const watchlistService = {
    */
   async addToWatchlist(titleId: string): Promise<WatchlistItem> {
     const res = await api.post('/watchlist', { titleId });
+    invalidateCache(['/watchlist', '/watchlist/status']);
     return res.data.data.item;
   },
 
@@ -47,6 +49,7 @@ export const watchlistService = {
    */
   async removeFromWatchlist(idOrTitleId: string): Promise<void> {
     await api.delete(`/watchlist/${idOrTitleId}`);
+    invalidateCache(['/watchlist', '/watchlist/status']);
   },
 
   /**
@@ -54,6 +57,7 @@ export const watchlistService = {
    */
   async markAsWatched(idOrTitleId: string, watched: boolean): Promise<WatchlistItem> {
     const res = await api.patch(`/watchlist/${idOrTitleId}/watched`, { watched });
+    invalidateCache(['/watchlist', '/watchlist/status']);
     return res.data.data.item;
   },
 
@@ -62,6 +66,7 @@ export const watchlistService = {
    */
   async rateTitle(idOrTitleId: string, rating: number): Promise<WatchlistItem> {
     const res = await api.patch(`/watchlist/${idOrTitleId}/rate`, { rating });
+    invalidateCache(['/watchlist', '/watchlist/status']);
     return res.data.data.item;
   },
 
@@ -70,7 +75,7 @@ export const watchlistService = {
    */
   async getTitleStatus(titleId: string): Promise<{ inWatchlist: boolean; watched: boolean; starRating: number }> {
     try {
-      const res = await api.get(`/watchlist/status/${titleId}`);
+      const res = await cachedGet(`/watchlist/status/${titleId}`, undefined, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
       return res.data.data;
     } catch {
       return { inWatchlist: false, watched: false, starRating: 0 };

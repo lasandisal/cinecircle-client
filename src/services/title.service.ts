@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet, invalidateCache } from './requestCache';
 import type { Title } from '../types';
 
 export interface TitleFilterParams {
@@ -32,7 +33,7 @@ export const titleService = {
    * Fetch catalogue titles with multi-dimensional filtering
    */
   async getTitles(params?: TitleFilterParams): Promise<TitleListResponse> {
-    const res = await api.get('/titles', { params });
+    const res = await cachedGet('/titles', { params }, { ttlMs: 5 * 60_000, persist: true });
     return res.data.data;
   },
 
@@ -40,7 +41,7 @@ export const titleService = {
    * Fetch trending titles plus their provenance.
    */
   async getTrendingFeed(mediaType: 'all' | 'movie' | 'tv' = 'all'): Promise<TrendingFeed> {
-    const res = await api.get('/titles/trending', { params: { mediaType } });
+    const res = await cachedGet('/titles/trending', { params: { mediaType } }, { ttlMs: 5 * 60_000, persist: true });
     return {
       titles: res.data.data.titles || [],
       source: res.data.data.source === 'tmdb' ? 'tmdb' : 'catalogue',
@@ -59,7 +60,7 @@ export const titleService = {
    * Fetch all available genres
    */
   async getGenres(): Promise<string[]> {
-    const res = await api.get('/titles/genres');
+    const res = await cachedGet('/titles/genres', undefined, { ttlMs: 30 * 60_000, persist: true });
     return res.data.data.genres;
   },
 
@@ -67,7 +68,7 @@ export const titleService = {
    * Search titles by text
    */
   async search(q: string, type?: 'film' | 'tv'): Promise<Title[]> {
-    const res = await api.get('/titles/search', { params: { q, type } });
+    const res = await cachedGet('/titles/search', { params: { q, type } }, { ttlMs: 2 * 60_000, persist: true });
     return res.data.data.titles;
   },
 
@@ -75,9 +76,9 @@ export const titleService = {
    * Get full title details by ID or TMDB ID
    */
   async getTitleDetails(idOrTmdbId: string | number, type?: 'film' | 'tv'): Promise<Title> {
-    const res = await api.get(`/titles/${idOrTmdbId}`, {
+    const res = await cachedGet(`/titles/${idOrTmdbId}`, {
       params: type ? { type } : undefined,
-    });
+    }, { ttlMs: 10 * 60_000, persist: true });
     return res.data.data.title;
   },
 
@@ -85,7 +86,7 @@ export const titleService = {
    * Fetch rich episodes for a specific season
    */
   async getSeasonEpisodes(idOrTmdbId: string | number, seasonNumber: number) {
-    const res = await api.get(`/titles/${idOrTmdbId}/seasons/${seasonNumber}`);
+    const res = await cachedGet(`/titles/${idOrTmdbId}/seasons/${seasonNumber}`, undefined, { ttlMs: 10 * 60_000, persist: true });
     return res.data.data.season;
   },
 
@@ -107,6 +108,7 @@ export const titleService = {
       parentId,
       poll,
     });
+    invalidateCache([`/titles/${titleId}/comments`]);
     return res.data.data.comment;
   },
 
@@ -115,6 +117,7 @@ export const titleService = {
    */
   async likeComment(commentId: string) {
     const res = await api.post(`/titles/comments/${commentId}/like`);
+    invalidateCache(['/titles/']);
     return res.data.data.comment;
   },
 
@@ -123,6 +126,7 @@ export const titleService = {
    */
   async reactToComment(commentId: string, emoji: string) {
     const res = await api.post(`/titles/comments/${commentId}/react`, { emoji });
+    invalidateCache(['/titles/']);
     return res.data.data.comment;
   },
 
@@ -131,6 +135,7 @@ export const titleService = {
    */
   async voteCommentPoll(commentId: string, optionIndex: number) {
     const res = await api.post(`/titles/comments/${commentId}/poll/vote`, { optionIndex });
+    invalidateCache(['/titles/']);
     return res.data.data.comment;
   },
 
@@ -141,6 +146,7 @@ export const titleService = {
     const res = await api.post(`/titles/comments/${commentId}/report`, {
       reason: reason?.trim() || undefined,
     });
+    invalidateCache(['/titles/']);
     return res.data.data;
   },
 
@@ -148,7 +154,7 @@ export const titleService = {
    * Get comments for a title
    */
   async getComments(titleId: string) {
-    const res = await api.get(`/titles/${titleId}/comments`);
+    const res = await cachedGet(`/titles/${titleId}/comments`, undefined, { ttlMs: 30_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data.comments;
   },
 
@@ -166,9 +172,9 @@ export const titleService = {
    * actually belongs to the film/series being viewed to the top.
    */
   async searchMusic(query: string, titleName?: string) {
-    const res = await api.get('/titles/music/search', {
+    const res = await cachedGet('/titles/music/search', {
       params: { q: query, ...(titleName ? { titleName } : {}) },
-    });
+    }, { ttlMs: 5 * 60_000, persist: true });
     return res.data.data.tracks;
   },
 

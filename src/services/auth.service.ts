@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet } from './requestCache';
 import type { User } from '../types';
 
 export interface AuthResponseData {
@@ -42,7 +43,7 @@ export const authService = {
   },
 
   async getMe(): Promise<User> {
-    const res = await api.get('/auth/me');
+    const res = await cachedGet('/auth/me', undefined, { ttlMs: 60_000 });
     return res.data.data.user;
   },
 

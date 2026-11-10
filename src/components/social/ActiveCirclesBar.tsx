@@ -19,6 +19,8 @@ export const ActiveCirclesBar: React.FC = () => {
       }
     };
     fetchCircles();
+    const refreshTimer = window.setInterval(fetchCircles, 15000);
+    return () => window.clearInterval(refreshTimer);
   }, []);
 
   return (

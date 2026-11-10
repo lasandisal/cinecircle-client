@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet } from './requestCache';
 
 export interface FlaggedComment {
   _id: string;
@@ -31,7 +32,7 @@ export const curatorService = {
     reportedComments: FlaggedComment[];
     openCount: number;
   }> {
-    const res = await api.get('/curator/comments/flagged', { params: { status } });
+    const res = await cachedGet('/curator/comments/flagged', { params: { status } }, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
     return res.data.data;
   },
 

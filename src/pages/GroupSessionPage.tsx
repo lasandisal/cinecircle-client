@@ -83,15 +83,23 @@ export const GroupSessionPage: React.FC = () => {
 
   useEffect(() => {
     if (!showAllCircles) return;
-    setLoadingAllCircles(true);
-    socialService
-      .getActiveSessions()
-      .then(({ display }) => setAllCircles(display))
-      .catch((err) => {
+    const fetchAllCircles = async (initialLoad: boolean) => {
+      if (initialLoad) setLoadingAllCircles(true);
+      try {
+        const { display } = await socialService.getActiveSessions();
+        setAllCircles(display);
+        if (initialLoad) setError(null);
+      } catch (err) {
         console.error('Failed to load all active circles:', err);
-        setError('Unable to load active circles.');
-      })
-      .finally(() => setLoadingAllCircles(false));
+        if (initialLoad) setError('Unable to load active circles.');
+      } finally {
+        if (initialLoad) setLoadingAllCircles(false);
+      }
+    };
+
+    fetchAllCircles(true);
+    const refreshTimer = window.setInterval(() => fetchAllCircles(false), 10000);
+    return () => window.clearInterval(refreshTimer);
   }, [showAllCircles]);
 
   useEffect(() => {
@@ -222,11 +230,19 @@ export const GroupSessionPage: React.FC = () => {
   };
 
   const applyFinalizedPayload = (payload: any) => {
-    if (payload?.session) setActiveSession(payload.session as GroupSessionDetail);
-    if (payload?.winnerId !== undefined) {
-      setActiveSession((prev) =>
-        prev ? ({ ...prev, finalPick: payload.winnerId } as GroupSessionDetail) : prev
-      );
+    if (payload?.session) {
+      const session = payload.session as GroupSessionDetail;
+      const winnerId = payload.winnerId?.toString();
+      const fallbackWinner =
+        winnerId && !session.finalPick
+          ? (session.shortlist || []).find(
+              (title: any) => (title._id || title.id || title.tmdbId)?.toString() === winnerId
+            )
+          : undefined;
+      setActiveSession({
+        ...session,
+        finalPick: session.finalPick || fallbackWinner,
+      });
     }
     if (Array.isArray(payload?.scores)) setCompromiseScores(payload.scores);
     if (payload?.aiPitch) {
@@ -234,6 +250,8 @@ export const GroupSessionPage: React.FC = () => {
       setAiPitchGenerated(!!payload.aiPitchGenerated);
     }
   };
+
+  const isLoadingRoom = Boolean(initialCode) && loading && !activeSession;
 
   const loadSessionByCode = async (code: string, isSilent = false) => {
     if (!isSilent) {
@@ -266,7 +284,16 @@ export const GroupSessionPage: React.FC = () => {
       }
     } catch (err: any) {
       if (!isSilent) {
-        setError(err.response?.data?.error || `Could not find room with code ${code}`);
+        const isMissingRoom = err.response?.status === 404;
+        setActiveSession(null);
+        setError(
+          isMissingRoom
+            ? 'This circle is no longer active or has been deleted.'
+            : err.response?.data?.error || `Could not find room with code ${code}`
+        );
+        if (isMissingRoom) {
+          setSearchParams({ view: 'all' });
+        }
       }
     } finally {
       if (!isSilent) {
@@ -809,10 +836,10 @@ export const GroupSessionPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>Candidate Shortlist ({(activeSession.shortlist || []).length})</span>
+                <span>Shortlisted Shows ({(activeSession.shortlist || []).length})</span>
               </h3>
               <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                • Vote yes or no to calculate compromise
+                • Vote on each show to help choose what to watch
               </span>
             </div>
 
@@ -1225,6 +1252,18 @@ export const GroupSessionPage: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (isLoadingRoom) {
+    return (
+      <div className="max-w-4xl mx-auto flex min-h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-3 text-indigo-400 animate-spin" />
+          <p className="text-sm font-semibold text-slate-200">Loading circle details...</p>
+          <p className="text-xs text-slate-500 mt-1">Fetching participants, shortlist, and votes.</p>
+        </div>
       </div>
     );
   }

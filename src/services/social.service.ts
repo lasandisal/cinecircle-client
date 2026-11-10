@@ -1,4 +1,4 @@
-import { api } from './api';
+import { cachedGet } from './requestCache';
 import type { FeedPostProps } from '../components/social/SocialFeedPost';
 import type { GroupPollProps } from '../components/social/GroupSessionCard';
 
@@ -31,7 +31,7 @@ export const socialService = {
    * `filter: 'connections'` restricts activity to accepted connections.
    */
   async getFeed(page = 1, limit = 10, filter: 'all' | 'connections' = 'all'): Promise<FeedPostProps[]> {
-    const res = await api.get('/titles/feed', { params: { page, limit, filter } });
+    const res = await cachedGet('/titles/feed', { params: { page, limit, filter } }, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
     return res.data.data.posts || [];
   },
 
@@ -39,7 +39,7 @@ export const socialService = {
    * Get active decision circles/rooms
    */
   async getActiveSessions(): Promise<{ raw: any[]; display: ActiveCircleItem[]; featuredPoll?: GroupPollProps }> {
-    const res = await api.get('/sessions/active');
+    const res = await cachedGet('/sessions/active', undefined, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
     const sessions = res.data.data.sessions || [];
 
     const display: ActiveCircleItem[] = sessions.map((s: any) => ({
@@ -102,7 +102,7 @@ export const socialService = {
    * Get suggested users for taste matches
    */
   async getUserSuggestions(): Promise<UserSuggestion[]> {
-    const res = await api.get('/users/suggestions');
+    const res = await cachedGet('/users/suggestions', undefined, { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data.users || [];
   },
 };

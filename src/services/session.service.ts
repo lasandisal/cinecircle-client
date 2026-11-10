@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet, invalidateCache } from './requestCache';
 
 export interface GroupSessionDetail {
   _id: string;
@@ -25,6 +26,7 @@ export const sessionService = {
     selectedParticipantIds?: string[];
   }): Promise<{ session: GroupSessionDetail; joinCode: string }> {
     const res = await api.post('/sessions/create', data);
+    invalidateCache(['/sessions/active']);
     return res.data.data;
   },
 
@@ -32,7 +34,7 @@ export const sessionService = {
    * Get session by 6-character room code
    */
   async getSessionByCode(joinCode: string): Promise<{ session: GroupSessionDetail; votes: any[] }> {
-    const res = await api.get(`/sessions/code/${joinCode}`);
+    const res = await cachedGet(`/sessions/code/${joinCode}`, undefined, { ttlMs: 10_000, staleWhileRevalidateMs: 10_000 });
     return res.data.data;
   },
 
@@ -41,11 +43,13 @@ export const sessionService = {
    */
   async joinSession(joinCode: string): Promise<{ session: GroupSessionDetail; votes?: any[] }> {
     const res = await api.post('/sessions/join', { joinCode });
+    invalidateCache(['/sessions/active', `/sessions/code/${joinCode}`]);
     return res.data.data;
   },
 
   async inviteMembers(sessionId: string, memberIds: string[]): Promise<{ invitedCount: number }> {
     const res = await api.post(`/sessions/${sessionId}/invitations`, { memberIds });
+    invalidateCache([`/sessions/code/`, '/users/notifications']);
     return res.data.data;
   },
 
@@ -54,11 +58,13 @@ export const sessionService = {
     status: 'accepted' | 'rejected'
   ): Promise<{ status: 'accepted' | 'rejected'; joinCode: string }> {
     const res = await api.post(`/sessions/invitations/${invitationId}/respond`, { status });
+    invalidateCache(['/users/notifications']);
     return res.data.data;
   },
 
   async deleteSession(sessionId: string): Promise<void> {
     await api.delete(`/sessions/${sessionId}`);
+    invalidateCache(['/sessions/active', '/sessions/code/']);
   },
 
   /**
@@ -69,6 +75,7 @@ export const sessionService = {
     data: { titleId?: string; tmdbId?: number; type?: 'film' | 'tv'; titleData?: any }
   ): Promise<{ session: GroupSessionDetail; votes: any[] }> {
     const res = await api.post(`/sessions/${sessionId}/shortlist`, data);
+    invalidateCache(['/sessions/active', '/sessions/code/']);
     return res.data.data;
   },
 
@@ -77,6 +84,7 @@ export const sessionService = {
    */
   async removeTitleFromShortlist(sessionId: string, titleId: string): Promise<GroupSessionDetail> {
     const res = await api.delete(`/sessions/${sessionId}/shortlist/${titleId}`);
+    invalidateCache(['/sessions/active', '/sessions/code/']);
     return res.data.data.session;
   },
 
@@ -91,6 +99,7 @@ export const sessionService = {
     strength = 3
   ): Promise<{ vote: any; votes: any[] }> {
     const res = await api.post(`/sessions/${sessionId}/vote`, { titleId, reaction, strength });
+    invalidateCache(['/sessions/active', '/sessions/code/']);
     return res.data.data;
   },
 
@@ -109,6 +118,7 @@ export const sessionService = {
     aiPitchGenerated: boolean;
   }> {
     const res = await api.post(`/sessions/${sessionId}/lock`);
+    invalidateCache(['/sessions/active', '/sessions/code/']);
     return res.data.data;
   },
 };

@@ -1,4 +1,5 @@
 import { api } from './api';
+import { cachedGet, invalidateCache } from './requestCache';
 import type { UserProfileData, CommunityPerson, ConnectionGraph } from '../types';
 
 export interface UpdateProfilePayload {
@@ -22,7 +23,7 @@ export const userService = {
     genreScores: Record<string, number>;
     tasteComputedAt?: string;
   }> {
-    const res = await api.get('/users/taste-profile');
+    const res = await cachedGet('/users/taste-profile', undefined, { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data.tasteProfile;
   },
 
@@ -31,7 +32,7 @@ export const userService = {
    */
   async getProfile(userId?: string): Promise<UserProfileData> {
     const endpoint = userId && userId !== 'me' ? `/users/${userId}/profile` : '/users/profile';
-    const res = await api.get(endpoint);
+    const res = await cachedGet(endpoint, undefined, { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data.profile;
   },
 
@@ -40,6 +41,7 @@ export const userService = {
    */
   async updateProfile(payload: UpdateProfilePayload): Promise<any> {
     const res = await api.put('/users/profile', payload);
+    invalidateCache(['/users/profile', '/auth/me']);
     return res.data.data.user;
   },
 
@@ -47,7 +49,7 @@ export const userService = {
    * Search real community members / Find more people
    */
   async searchPeople(query = ''): Promise<CommunityPerson[]> {
-    const res = await api.get('/users/search', { params: { q: query } });
+    const res = await cachedGet('/users/search', { params: { q: query } }, { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data.people || [];
   },
 
@@ -73,7 +75,7 @@ export const userService = {
    */
   async getConnections(userId?: string): Promise<ConnectionGraph> {
     const endpoint = userId && userId !== 'me' ? `/users/${userId}/connections` : '/users/connections';
-    const res = await api.get(endpoint);
+    const res = await cachedGet(endpoint, undefined, { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 });
     return res.data.data;
   },
 
@@ -82,6 +84,7 @@ export const userService = {
    */
   async updateTasteProfile(data: { favoriteGenres?: string[]; exclusions?: string[]; favoriteTitles?: string[] }): Promise<any> {
     const res = await api.put('/users/taste-profile', data);
+    invalidateCache(['/users/taste-profile', '/recommendations']);
     return res.data.data.tasteProfile;
   },
 
@@ -90,6 +93,7 @@ export const userService = {
    */
   async updateSubscribedServices(services: string[]): Promise<string[]> {
     const res = await api.put('/users/subscribed-services', { services });
+    invalidateCache(['/users/profile', '/users/taste-profile', '/recommendations']);
     return res.data.data.subscribedServices;
   },
 
@@ -103,6 +107,7 @@ export const userService = {
     subscribedServices?: string[];
   }): Promise<{ user: any; tasteProfile: any }> {
     const res = await api.post('/users/onboarding', payload);
+    invalidateCache(['/users/profile', '/users/taste-profile', '/auth/me', '/recommendations']);
     return res.data.data;
   },
 
@@ -110,7 +115,7 @@ export const userService = {
    * Get real notifications for current user
    */
   async getNotifications(): Promise<any[]> {
-    const res = await api.get('/users/notifications');
+    const res = await cachedGet('/users/notifications', undefined, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
     return res.data.data.notifications || [];
   },
 };
