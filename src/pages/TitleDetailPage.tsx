@@ -377,8 +377,26 @@ export const TitleDetailPage: React.FC = () => {
   // Poll attachment state
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOption1, setPollOption1] = useState('');
-  const [pollOption2, setPollOption2] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+  const MAX_POLL_OPTIONS = 4;
+
+  const addPollOption = () => {
+    if (pollOptions.length < MAX_POLL_OPTIONS) {
+      setPollOptions([...pollOptions, '']);
+    }
+  };
+
+  const removePollOption = (index: number) => {
+    if (pollOptions.length > 2) {
+      setPollOptions(pollOptions.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePollOptionChange = (index: number, value: string) => {
+    const next = [...pollOptions];
+    next[index] = value;
+    setPollOptions(next);
+  };
 
   // Threaded reply state
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
@@ -559,11 +577,12 @@ export const TitleDetailPage: React.FC = () => {
 
     setSubmittingComment(true);
     try {
+      const nonEmptyOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
       const pollPayload =
-        showPollForm && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()
+        showPollForm && pollQuestion.trim() && nonEmptyOptions.length >= 2
           ? {
               question: pollQuestion.trim(),
-              options: [pollOption1.trim(), pollOption2.trim()],
+              options: nonEmptyOptions,
             }
           : undefined;
 
@@ -586,8 +605,7 @@ export const TitleDetailPage: React.FC = () => {
       setHasSpoiler(false);
       setShowPollForm(false);
       setPollQuestion('');
-      setPollOption1('');
-      setPollOption2('');
+      setPollOptions(['', '']);
     } catch (err: any) {
       console.error('Error posting comment:', err);
     } finally {
@@ -661,6 +679,29 @@ export const TitleDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to vote on poll:', err);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!requireAuth()) return;
+    if (!window.confirm('Delete this comment? This cannot be undone.')) return;
+
+    try {
+      await titleService.deleteComment(commentId);
+      setTitle((prev) => {
+        if (!prev) return prev;
+        const removeFrom = (arr: any[]) =>
+          arr
+            .map((c) => ({
+              ...c,
+              replies: (c.replies || []).filter((r: any) => r._id !== commentId),
+            }))
+            .filter((c: any) => c._id !== commentId);
+        return { ...prev, comments: removeFrom(prev.comments || []) };
+      });
+    } catch (err: any) {
+      console.error('Failed to delete comment:', err);
+      alert(err?.response?.data?.error || 'Could not delete this comment. Please try again.');
     }
   };
 
@@ -1879,21 +1920,44 @@ export const TitleDetailPage: React.FC = () => {
                       onChange={(e) => setPollQuestion(e.target.value)}
                       className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Option 1 (e.g. Season 1)"
-                        value={pollOption1}
-                        onChange={(e) => setPollOption1(e.target.value)}
-                        className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Option 2 (e.g. Season 4)"
-                        value={pollOption2}
-                        onChange={(e) => setPollOption2(e.target.value)}
-                        className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                      />
+                    <div className="space-y-2">
+                      {pollOptions.map((opt, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="text"
+                            placeholder={`Option ${idx + 1}`}
+                            value={opt}
+                            onChange={(e) => handlePollOptionChange(idx, e.target.value)}
+                            className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                          {pollOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removePollOption(idx)}
+                              className="p-1 text-slate-500 hover:text-rose-400"
+                              title="Remove option"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {pollOptions.length < MAX_POLL_OPTIONS && (
+                        <button
+                          type="button"
+                          onClick={addPollOption}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 px-2 py-1 rounded border border-indigo-500/30 text-xs font-medium"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add option</span>
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-500">
+                        {pollOptions.length} of {MAX_POLL_OPTIONS} options
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1969,7 +2033,7 @@ export const TitleDetailPage: React.FC = () => {
 
                   // Has current user reacted?
                   const userReaction = (comment.reactions || []).find(
-                    (r) => r.user === currentUser?._id
+                    (r) => r.userId === currentUser?._id
                   );
 
                   // Calculate poll votes total
@@ -2009,6 +2073,18 @@ export const TitleDetailPage: React.FC = () => {
                             <Star className="w-3 h-3 fill-amber-400" />
                             {comment.rating}.0
                           </span>
+                        )}
+
+                        {/* Delete - owner only */}
+                        {comment.user?._id === currentUser?._id && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteComment(comment._id)}
+                            className="text-[10px] text-slate-500 hover:text-rose-400 px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+                            title="Delete your comment"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         )}
                       </div>
 
@@ -2253,6 +2329,17 @@ export const TitleDetailPage: React.FC = () => {
                                 <span className="text-[10px] text-slate-500">
                                   {new Date(reply.createdAt).toLocaleDateString()}
                                 </span>
+
+                                {reply.user?._id === currentUser?._id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteComment(reply._id)}
+                                    className="text-[9px] text-slate-500 hover:text-rose-400 px-1 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+                                    title="Delete your reply"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
                               </div>
                               <p className="text-xs text-slate-300 leading-relaxed font-normal">
                                 {reply.text}

@@ -140,6 +140,14 @@ export const titleService = {
   },
 
   /**
+   * Soft delete a comment (author only).
+   */
+  async deleteComment(commentId: string) {
+    const res = await api.delete(`/titles/comments/${commentId}`);
+    return res.data.data;
+  },
+
+  /**
    * Report a comment for curator moderation
    */
   async reportComment(commentId: string, reason?: string) {

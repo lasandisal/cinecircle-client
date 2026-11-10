@@ -172,7 +172,7 @@ export interface CommentPoll {
 }
 
 export interface CommentReaction {
-  user: string;
+  userId: string;
   emoji: ReactionEmoji;
 }
 
