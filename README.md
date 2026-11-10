@@ -29,8 +29,8 @@ flowchart LR
 
     UI --> Redux
     Redux --> Services
-    Services <-->|HTTP / Axios| REST
-    Services <-->|Socket.IO Events| WS
+    Services <-->|"HTTP / Axios"| REST
+    Services <-->|"Socket.IO Events"| WS
 ```
 
 ---
