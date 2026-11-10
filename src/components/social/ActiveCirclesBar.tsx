@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, Flame } from 'lucide-react';
+import { Plus, Users, Flame, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { socialService, type ActiveCircleItem } from '../../services/social.service';
 
 export const ActiveCirclesBar: React.FC = () => {
   const [circles, setCircles] = useState<ActiveCircleItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCircles = async () => {
@@ -13,6 +14,8 @@ export const ActiveCirclesBar: React.FC = () => {
         setCircles(display);
       } catch (err) {
         console.error('Failed to load active circles:', err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchCircles();
@@ -30,7 +33,7 @@ export const ActiveCirclesBar: React.FC = () => {
             <Flame className="w-3.5 h-3.5 text-amber-400" /> Active Watch Circles
           </h2>
         </div>
-        <Link to="/group" className="text-[11px] sm:text-xs text-indigo-400 hover:text-indigo-300 font-semibold">
+        <Link to="/group?view=all" className="text-[11px] sm:text-xs text-indigo-400 hover:text-indigo-300 font-semibold">
           See All &rarr;
         </Link>
       </div>
@@ -50,8 +53,12 @@ export const ActiveCirclesBar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Live Real Circles from Database */}
-        {circles.map((circle) => (
+        {loading ? (
+          <div className="flex items-center gap-2 px-3 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            Loading circles...
+          </div>
+        ) : circles.map((circle) => (
           <Link
             key={circle.id}
             to={`/group?code=${circle.joinCode}`}

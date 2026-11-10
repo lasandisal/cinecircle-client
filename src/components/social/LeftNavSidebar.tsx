@@ -6,7 +6,6 @@ import {
   Bookmark,
   Sparkles,
   TrendingUp,
-  UserCheck,
   Tv,
   ShieldCheck,
 } from 'lucide-react';
@@ -220,15 +219,15 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
           </button>
 
           <button
-            onClick={() => setActiveTab('following')}
+            onClick={() => setActiveTab('connections')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'following'
+              activeTab === 'connections'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            <UserCheck className="w-4 h-4" />
-            <span>Friends Activity</span>
+            <Users className="w-4 h-4" />
+            <span>Connections Activity</span>
           </button>
 
           <button

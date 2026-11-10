@@ -28,11 +28,9 @@ export const socialService = {
   /**
    * Get live community feed posts and discussion polls.
    *
-   * `filter: 'following'` is a real server-side restriction to people the
-   * viewer actually follows - previously the "Following Activity" tab sent no
-   * filter and received the identical global feed.
+   * `filter: 'connections'` restricts activity to accepted connections.
    */
-  async getFeed(page = 1, limit = 10, filter: 'all' | 'following' = 'all'): Promise<FeedPostProps[]> {
+  async getFeed(page = 1, limit = 10, filter: 'all' | 'connections' = 'all'): Promise<FeedPostProps[]> {
     const res = await api.get('/titles/feed', { params: { page, limit, filter } });
     return res.data.data.posts || [];
   },

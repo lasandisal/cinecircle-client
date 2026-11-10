@@ -3,6 +3,7 @@ import { Bell, Users, UserPlus, Sparkles, CheckCheck, Loader2 } from 'lucide-rea
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/useAppRedux';
 import { userService } from '../../services/user.service';
+import { sessionService } from '../../services/session.service';
 
 export interface NotificationItem {
   id: string;
@@ -16,6 +17,8 @@ export interface NotificationItem {
   actionUrl?: string;
   actionText?: string;
   requestId?: string;
+  invitationId?: string;
+  sessionId?: string;
 }
 
 const STORAGE_KEY = 'cinecircle_read_notifications_v2';
@@ -118,6 +121,26 @@ export const NotificationsDropdown: React.FC = () => {
     } catch (error) {
       console.error(`Failed to ${status === 'accepted' ? 'accept' : 'ignore'} connection request:`, error);
       setRequestActionError('Unable to update this request. Please try again.');
+    } finally {
+      setRequestActionId(null);
+    }
+  };
+
+  const respondToSessionInvitation = async (notification: NotificationItem, status: 'accepted' | 'rejected') => {
+    if (!notification.invitationId) return;
+
+    try {
+      setRequestActionId(notification.id);
+      setRequestActionError(null);
+      const result = await sessionService.respondToInvitation(notification.invitationId, status);
+      setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+      if (status === 'accepted') {
+        setIsOpen(false);
+        navigate(`/group?code=${result.joinCode}`);
+      }
+    } catch (error) {
+      console.error(`Failed to ${status === 'accepted' ? 'accept' : 'ignore'} circle invitation:`, error);
+      setRequestActionError('Unable to update this invitation. Please try again.');
     } finally {
       setRequestActionId(null);
     }
@@ -277,7 +300,7 @@ export const NotificationsDropdown: React.FC = () => {
                       key={n.id}
                       onClick={() => {
                         markAsRead(n.id);
-                        if (n.actionUrl && !n.requestId) {
+                        if (n.actionUrl && !n.requestId && !n.invitationId) {
                           setIsOpen(false);
                           navigate(n.actionUrl);
                         }
@@ -331,7 +354,7 @@ export const NotificationsDropdown: React.FC = () => {
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-[10px] text-slate-500">{n.timestamp}</span>
 
-                          {n.requestId ? (
+                          {n.requestId || n.invitationId ? (
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
@@ -339,7 +362,9 @@ export const NotificationsDropdown: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   markAsRead(n.id);
-                                  void respondToConnectionRequest(n, 'accepted');
+                                  void (n.requestId
+                                    ? respondToConnectionRequest(n, 'accepted')
+                                    : respondToSessionInvitation(n, 'accepted'));
                                 }}
                                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                               >
@@ -351,7 +376,9 @@ export const NotificationsDropdown: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   markAsRead(n.id);
-                                  void respondToConnectionRequest(n, 'rejected');
+                                  void (n.requestId
+                                    ? respondToConnectionRequest(n, 'rejected')
+                                    : respondToSessionInvitation(n, 'rejected'));
                                 }}
                                 className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-300 text-[11px] font-semibold rounded-lg border border-slate-700 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                               >
@@ -375,7 +402,7 @@ export const NotificationsDropdown: React.FC = () => {
                             </button>
                           )}
                         </div>
-                        {requestActionError && requestActionId === null && n.requestId && (
+                        {requestActionError && requestActionId === null && (n.requestId || n.invitationId) && (
                           <p className="text-[10px] text-rose-400">{requestActionError}</p>
                         )}
                       </div>

@@ -54,15 +54,6 @@ export const userService = {
   /**
    * Toggle follow/unfollow a user
    */
-  async toggleFollow(targetUserId: string): Promise<{
-    following: boolean;
-    isFollowedBy: boolean;
-    isMutual: boolean;
-  }> {
-    const res = await api.post('/users/follow', { targetUserId });
-    return res.data.data;
-  },
-
   async requestConnection(targetUserId: string): Promise<{ status: 'pending_sent' }> {
     const res = await api.post('/users/connections/request', { targetUserId });
     return res.data.data;

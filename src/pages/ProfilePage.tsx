@@ -64,7 +64,6 @@ export const ProfilePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [people, setPeople] = useState<CommunityPerson[]>([]);
   const [searchingPeople, setSearchingPeople] = useState(false);
-  const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
   const [connectionLoading, setConnectionLoading] = useState(false);
 
   // Social graph modal
@@ -72,7 +71,7 @@ export const ProfilePage: React.FC = () => {
   const [graph, setGraph] = useState<ConnectionGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
 
-  const graphList: ConnectionPerson[] = graph?.mutuals ?? [];
+  const graphList: ConnectionPerson[] = graph?.connections ?? [];
 
   const openConnections = async () => {
     setConnectionsOpen(true);
@@ -193,52 +192,6 @@ export const ProfilePage: React.FC = () => {
       console.error('Failed to send connection request:', err);
     } finally {
       setConnectionLoading(false);
-    }
-  };
-
-  // Toggle follow inside "Find More People" modal
-  const handleToggleFollowPerson = async (personId: string) => {
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
-    setFollowLoadingMap((prev) => ({ ...prev, [personId]: true }));
-    try {
-      const res = await userService.toggleFollow(personId);
-      setPeople((prev) =>
-        prev.map((p) => {
-          if (p.id === personId) {
-            const nextFollow = res.following;
-            return {
-              ...p,
-              isFollowing: nextFollow,
-              stats: {
-                ...p.stats,
-                followersCount: nextFollow ? p.stats.followersCount + 1 : Math.max(0, p.stats.followersCount - 1),
-              },
-            };
-          }
-          return p;
-        })
-      );
-
-      // If we followed someone, update current user's following stat count
-      if (isSelf) {
-        setProfile((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            stats: {
-              ...prev.stats,
-              followingCount: res.following ? prev.stats.followingCount + 1 : Math.max(0, prev.stats.followingCount - 1),
-            },
-          };
-        });
-      }
-    } catch (err) {
-      console.error('Failed to toggle follow user:', err);
-    } finally {
-      setFollowLoadingMap((prev) => ({ ...prev, [personId]: false }));
     }
   };
 
@@ -1379,7 +1332,7 @@ export const ProfilePage: React.FC = () => {
 
             <div className="border-b border-slate-800/80 pb-3">
               <span className="inline-flex px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Connections ({graph?.counts.mutualConnectionsCount ?? 0})
+                Connections ({graph?.counts.connectionsCount ?? 0})
               </span>
             </div>
 
@@ -1413,11 +1366,9 @@ export const ProfilePage: React.FC = () => {
                         <p className="text-[10px] text-slate-500 truncate">{person.handle}</p>
                       </div>
                     </Link>
-                    {graph?.mutuals.some((m) => m.id === person.id) && (
-                      <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 shrink-0">
-                        Connection
-                      </span>
-                    )}
+                    <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 shrink-0">
+                      Connection
+                    </span>
                   </div>
                 ))
               )}
@@ -1495,34 +1446,11 @@ export const ProfilePage: React.FC = () => {
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 pt-0.5">
                           <span className="text-violet-400 font-semibold">{person.stats.circlesCount} Circles</span>
                           <span>•</span>
-                          <span className="text-rose-400 font-semibold">{person.stats.followersCount} Followers</span>
+                          <span className="text-teal-400 font-semibold">Member</span>
                         </div>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleToggleFollowPerson(person.id)}
-                      disabled={followLoadingMap[person.id]}
-                      className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 ${
-                        person.isFollowing
-                          ? 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20'
-                      }`}
-                    >
-                      {followLoadingMap[person.id] ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : person.isFollowing ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span>Following</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-3 h-3" />
-                          <span>Connect</span>
-                        </>
-                      )}
-                    </button>
                   </div>
                 ))
               ) : (

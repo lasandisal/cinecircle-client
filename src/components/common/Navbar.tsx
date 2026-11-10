@@ -314,14 +314,8 @@ export const Navbar: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                               <span>{person.stats.watchedCount} watched</span>
-                              {person.isFollowing && (
-                                <span className="text-indigo-400">• Following</span>
-                              )}
                             </div>
                           </div>
-                          {person.isFollowing ? (
-                            <span className="text-[10px] text-slate-500">Following</span>
-                          ) : null}
                         </Link>
                       ))}
                       {userResults.length === 0 && searchResults.length === 0 && !isSearching && (
@@ -622,9 +616,6 @@ export const Navbar: React.FC = () => {
                               {person.handle} • {person.stats.watchedCount} watched
                             </p>
                           </div>
-                          {person.isFollowing ? (
-                            <span className="text-[10px] text-slate-500">Following</span>
-                          ) : null}
                         </Link>
                       ))}
                     </>

@@ -17,7 +17,13 @@ export const sessionService = {
   /**
    * Create a new group watch decision session
    */
-  async createSession(data: { name?: string; maxRuntime?: number; moodFilter?: string; shortlistTitleIds?: string[] }): Promise<{ session: GroupSessionDetail; joinCode: string }> {
+  async createSession(data: {
+    name?: string;
+    maxRuntime?: number;
+    moodFilter?: string;
+    shortlistTitleIds?: string[];
+    selectedParticipantIds?: string[];
+  }): Promise<{ session: GroupSessionDetail; joinCode: string }> {
     const res = await api.post('/sessions/create', data);
     return res.data.data;
   },
@@ -36,6 +42,23 @@ export const sessionService = {
   async joinSession(joinCode: string): Promise<{ session: GroupSessionDetail; votes?: any[] }> {
     const res = await api.post('/sessions/join', { joinCode });
     return res.data.data;
+  },
+
+  async inviteMembers(sessionId: string, memberIds: string[]): Promise<{ invitedCount: number }> {
+    const res = await api.post(`/sessions/${sessionId}/invitations`, { memberIds });
+    return res.data.data;
+  },
+
+  async respondToInvitation(
+    invitationId: string,
+    status: 'accepted' | 'rejected'
+  ): Promise<{ status: 'accepted' | 'rejected'; joinCode: string }> {
+    const res = await api.post(`/sessions/invitations/${invitationId}/respond`, { status });
+    return res.data.data;
+  },
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await api.delete(`/sessions/${sessionId}`);
   },
 
   /**

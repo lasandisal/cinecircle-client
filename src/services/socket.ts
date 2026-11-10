@@ -160,6 +160,10 @@ class SocketService {
     this.socket?.on('vote:updated', handler);
   }
 
+  onShortlistUpdated(handler: (payload: { sessionId: string; session: any; votes?: any[] }) => void): void {
+    this.socket?.on('shortlist:updated', handler);
+  }
+
   onSessionFinalized(handler: (payload: SessionFinalizedPayload) => void): void {
     this.socket?.on('session:finalized', handler);
   }

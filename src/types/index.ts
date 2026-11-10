@@ -17,13 +17,9 @@ export interface User {
 export interface UserStats {
   watchlistCount: number;
   watchedCount: number;
-  followingCount: number;
-  followersCount: number;
   circlesCount: number;
   reviewsCount: number;
   mutualWatchedCount?: number;
-  /** Two-way follow edges. Distinct from `mutualWatchedCount`. */
-  mutualConnectionsCount?: number;
   connectionsCount?: number;
   connectionStatus?: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
   connectionRequestId?: string;
@@ -125,10 +121,6 @@ export interface UserProfileData {
     };
     participants: string[];
   }>;
-  isFollowing?: boolean;
-  /** This person follows the viewer. */
-  isFollowedBy?: boolean;
-  /** Both follow each other - a genuine connection. */
   isMutualConnection?: boolean;
   connectionStatus?: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
   isSelf: boolean;
@@ -145,20 +137,9 @@ export interface ConnectionPerson {
 }
 
 export interface ConnectionGraph {
-  following: ConnectionPerson[];
-  followers: ConnectionPerson[];
-  /** People with a two-way follow edge. */
-  mutuals: ConnectionPerson[];
+  connections: ConnectionPerson[];
   counts: {
-    followingCount: number;
-    followersCount: number;
-    mutualConnectionsCount: number;
-  };
-  viewerRelationship: {
-    viewerId: string | null;
-    isFollowing: boolean;
-    isFollowedBy: boolean;
-    isMutual: boolean;
+    connectionsCount: number;
   };
 }
 
@@ -170,11 +151,9 @@ export interface CommunityPerson {
   avatar: string;
   bio: string;
   role: string;
-  isFollowing: boolean;
   stats: {
     watchedCount: number;
     circlesCount: number;
-    followersCount: number;
   };
   matchScore: number;
 }

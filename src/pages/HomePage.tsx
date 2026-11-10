@@ -28,7 +28,7 @@ import { titleService } from '../services/title.service';
 import { useAppSelector } from '../hooks/useAppRedux';
 import type { Title } from '../types';
 
-type FeedTab = 'for-you' | 'following' | 'trending';
+type FeedTab = 'for-you' | 'connections' | 'trending';
 
 const titleHref = (title: Title) =>
   `/title/${title._id || title.tmdbId}${title.type ? `?type=${title.type}` : ''}`;
@@ -287,9 +287,9 @@ export const HomePage: React.FC = () => {
   const [trendingSource, setTrendingSource] = useState<'tmdb' | 'catalogue'>('catalogue');
   const [trendingLoading, setTrendingLoading] = useState<boolean>(true);
 
-  // Only the "following" tab has a server-side filter; the other two are the
+  // Only the "connections" tab has a server-side filter; the other two are the
   // same global feed and are ranked differently on the client.
-  const feedFilter = activeTab === 'following' ? 'following' : 'all';
+  const feedFilter = activeTab === 'connections' ? 'connections' : 'all';
 
   const loadData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -333,7 +333,7 @@ export const HomePage: React.FC = () => {
 
   // A guest must never be left on a members-only tab.
   useEffect(() => {
-    if (!isAuthenticated && activeTab === 'following') {
+    if (!isAuthenticated && activeTab === 'connections') {
       setActiveTab('for-you');
     }
   }, [isAuthenticated, activeTab]);
@@ -379,7 +379,7 @@ export const HomePage: React.FC = () => {
             </div>
           ) : (
             <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/30 border border-slate-800/80 rounded-2xl space-y-2">
-              {activeTab === 'following' ? (
+              {activeTab === 'connections' ? (
                 <>
                   <p className="font-semibold text-slate-400">
                     Nothing from the people you follow yet.
@@ -483,9 +483,9 @@ export const HomePage: React.FC = () => {
                   For You
                 </button>
                 <button
-                  onClick={() => setActiveTab('following')}
+                  onClick={() => setActiveTab('connections')}
                   className={`text-sm font-bold pb-1 transition-all whitespace-nowrap ${
-                    activeTab === 'following'
+                    activeTab === 'connections'
                       ? 'text-white border-b-2 border-indigo-500'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}

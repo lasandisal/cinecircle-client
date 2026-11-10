@@ -24,7 +24,9 @@ import { useAppSelector } from '../store';
 import { sessionService, type GroupSessionDetail } from '../services/session.service';
 import { socketService } from '../services/socket';
 import { titleService } from '../services/title.service';
-import type { Title } from '../types';
+import { userService } from '../services/user.service';
+import { socialService, type ActiveCircleItem } from '../services/social.service';
+import type { CommunityPerson, ConnectionPerson, Title } from '../types';
 
 export const GroupSessionPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,6 +46,16 @@ export const GroupSessionPage: React.FC = () => {
   const [newMood, setNewMood] = useState('Mind-Bending');
   const [newMaxRuntime, setNewMaxRuntime] = useState<number>(140);
   const [creating, setCreating] = useState(false);
+  const [connections, setConnections] = useState<ConnectionPerson[]>([]);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<CommunityPerson[]>([]);
+  const [searchingMembers, setSearchingMembers] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
+  const [allCircles, setAllCircles] = useState<ActiveCircleItem[]>([]);
+  const [loadingAllCircles, setLoadingAllCircles] = useState(false);
+  const showAllCircles = searchParams.get('view') === 'all';
 
   // Voting state (personal votes map & room-wide allVotes array)
   const [votedMap, setVotedMap] = useState<Record<string, 'yes' | 'no'>>({});
@@ -58,6 +70,55 @@ export const GroupSessionPage: React.FC = () => {
   const [searching, setSearching] = useState(false);
   const [addingTitleId, setAddingTitleId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<any>(null);
+  const memberSearchTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    userService
+      .getConnections()
+      .then((graph) => setConnections(graph.connections || []))
+      .catch((err) => console.error('Failed to load connections for room creation:', err));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!showAllCircles) return;
+    setLoadingAllCircles(true);
+    socialService
+      .getActiveSessions()
+      .then(({ display }) => setAllCircles(display))
+      .catch((err) => {
+        console.error('Failed to load all active circles:', err);
+        setError('Unable to load active circles.');
+      })
+      .finally(() => setLoadingAllCircles(false));
+  }, [showAllCircles]);
+
+  useEffect(() => {
+    const query = memberSearch.trim();
+    if (!query) {
+      setMemberSearchResults([]);
+      setSearchingMembers(false);
+      return;
+    }
+
+    setSearchingMembers(true);
+    if (memberSearchTimeoutRef.current) clearTimeout(memberSearchTimeoutRef.current);
+    memberSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        setMemberSearchResults(await userService.searchPeople(query));
+      } catch (err) {
+        console.error('Failed to search members for room creation:', err);
+        setMemberSearchResults([]);
+      } finally {
+        setSearchingMembers(false);
+      }
+    }, 300);
+
+    return () => {
+      if (memberSearchTimeoutRef.current) clearTimeout(memberSearchTimeoutRef.current);
+    };
+  }, [memberSearch]);
 
   // Real-time transport + final decision payload
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -106,6 +167,15 @@ export const GroupSessionPage: React.FC = () => {
         if (payload.sessionId !== roomSessionId) return;
         setAllVotes(payload.votes || []);
         syncMyVotes(payload.votes || []);
+      });
+
+      socketService.onShortlistUpdated((payload) => {
+        if (payload.sessionId !== roomSessionId) return;
+        if (payload.session) setActiveSession(payload.session);
+        if (payload.votes) {
+          setAllVotes(payload.votes);
+          syncMyVotes(payload.votes);
+        }
       });
 
       socketService.onParticipantJoined(() => {
@@ -226,6 +296,7 @@ export const GroupSessionPage: React.FC = () => {
         name: newRoomName.trim(),
         moodFilter: newMood,
         maxRuntime: newMaxRuntime,
+        selectedParticipantIds,
       });
       setActiveSession(session);
       setSearchParams({ code: joinCode });
@@ -233,6 +304,52 @@ export const GroupSessionPage: React.FC = () => {
       setError(err.response?.data?.error || 'Failed to create room.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const toggleParticipant = (id: string) => {
+    setSelectedParticipantIds((prev) =>
+      prev.includes(id) ? prev.filter((participantId) => participantId !== id) : [...prev, id]
+    );
+  };
+
+  const allConnectionsSelected =
+    connections.length > 0 && connections.every((connection) => selectedParticipantIds.includes(connection.id));
+
+  const toggleAllConnections = () => {
+    setSelectedParticipantIds((prev) =>
+      allConnectionsSelected
+        ? prev.filter((id) => !connections.some((connection) => connection.id === id))
+        : Array.from(new Set([...prev, ...connections.map((connection) => connection.id)]))
+    );
+  };
+
+  const handleInviteMembers = async () => {
+    if (!activeSession || selectedParticipantIds.length === 0) return;
+    try {
+      await sessionService.inviteMembers(activeSession._id, selectedParticipantIds);
+      setInviteModalOpen(false);
+      setSelectedParticipantIds([]);
+      setMemberSearch('');
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to send invitations.');
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!activeSession || !user || activeSession.host?._id !== user._id) return;
+    if (!window.confirm('Delete this circle? All invitations and room activity will be removed.')) return;
+
+    try {
+      setDeletingSession(true);
+      await sessionService.deleteSession(activeSession._id);
+      setActiveSession(null);
+      setSearchParams({});
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete the circle.');
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -516,17 +633,79 @@ export const GroupSessionPage: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setActiveSession(null);
-                setSearchParams({});
-              }}
-              className="text-xs text-slate-400 hover:text-white shrink-0 self-start sm:self-auto cursor-pointer"
-            >
-              Exit Room
-            </button>
+            <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+              {isHost && activeSession.status === 'open' && (
+                <button
+                  onClick={() => setInviteModalOpen(true)}
+                  className="text-xs font-semibold text-indigo-300 hover:text-white cursor-pointer"
+                >
+                  Invite Members
+                </button>
+              )}
+              {isHost && (
+                <button
+                  onClick={() => void handleDeleteSession()}
+                  disabled={deletingSession}
+                  className="text-xs font-semibold text-rose-400 hover:text-rose-300 disabled:opacity-50 cursor-pointer"
+                >
+                  {deletingSession ? 'Deleting...' : 'Delete Circle'}
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setActiveSession(null);
+                  setSearchParams({});
+                }}
+                className="text-xs text-slate-400 hover:text-white cursor-pointer"
+              >
+                Exit Room
+              </button>
+            </div>
           </div>
         </div>
+
+        {inviteModalOpen && isHost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white">Invite members</h3>
+                <button onClick={() => setInviteModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="search"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder="Search by name or handle"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-800 divide-y divide-slate-800">
+                {(memberSearch.trim() ? memberSearchResults : connections).map((person) => (
+                  <label key={person.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedParticipantIds.includes(person.id)}
+                      onChange={() => toggleParticipant(person.id)}
+                      className="accent-indigo-500"
+                    />
+                    <img src={person.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    <span className="text-xs text-slate-200">{person.name}</span>
+                  </label>
+                ))}
+                {searchingMembers && <p className="p-3 text-xs text-slate-500">Searching...</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleInviteMembers()}
+                disabled={selectedParticipantIds.length === 0}
+                className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold"
+              >
+                Send Invitations ({selectedParticipantIds.length})
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Final Winning Decision Banner */}
         {activeSession.status === 'closed' && activeSession.finalPick && (
@@ -1053,6 +1232,59 @@ export const GroupSessionPage: React.FC = () => {
   // Lobby: Create or Join
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {showAllCircles && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white font-['Outfit']">All Active Circles</h1>
+              <p className="text-xs text-slate-400 mt-1">Join an open watch decision room with its code.</p>
+            </div>
+          </div>
+
+          {loadingAllCircles ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
+              <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
+              <h2 className="text-sm font-bold text-slate-200">Loading active circles...</h2>
+              <p className="text-xs text-slate-500 mt-1">Checking for open watch rooms.</p>
+            </div>
+          ) : allCircles.length === 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
+              <Users className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+              <h2 className="text-sm font-bold text-slate-200">No active circles yet</h2>
+              <p className="text-xs text-slate-500 mt-1">Create the first watch circle and invite your connections.</p>
+              <button
+                type="button"
+                onClick={() => setSearchParams({})}
+                className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+              >
+                Create New Circle
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {allCircles.map((circle) => (
+                <Link
+                  key={circle.id}
+                  to={`/group?code=${circle.joinCode}`}
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/50 transition-colors"
+                >
+                  <img src={circle.hostAvatar} alt={circle.hostName} className="w-12 h-12 rounded-xl object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-white truncate">{circle.name}</span>
+                    <span className="block text-xs text-slate-400 mt-1">
+                      Hosted by {circle.hostName} · {circle.participantsCount} participant(s)
+                    </span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-indigo-400 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {!showAllCircles && (
+        <>
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-semibold">
           <Users className="w-3.5 h-3.5" />
@@ -1132,6 +1364,102 @@ export const GroupSessionPage: React.FC = () => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">Add members</label>
+                  <p className="text-[10px] text-slate-500">
+                    Choose who to invite. You can also share the room code later.
+                  </p>
+                </div>
+                <span className="text-[10px] font-semibold text-indigo-300">
+                  {selectedParticipantIds.length} selected
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                <input
+                  type="search"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Search people by name or handle"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+                {!memberSearch.trim() ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={toggleAllConnections}
+                      disabled={connections.length === 0}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left border-b border-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="text-xs font-semibold text-indigo-300">
+                        {allConnectionsSelected ? 'Deselect all connections' : 'Select all connections'}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{connections.length} available</span>
+                    </button>
+                    <div className="max-h-32 overflow-y-auto divide-y divide-slate-800/70">
+                      {connections.length === 0 ? (
+                        <p className="px-3 py-3 text-[11px] text-slate-500">
+                          No connections yet. Search for people to add them.
+                        </p>
+                      ) : (
+                        connections.map((person) => (
+                          <label
+                            key={person.id}
+                            className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-900 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedParticipantIds.includes(person.id)}
+                              onChange={() => toggleParticipant(person.id)}
+                              className="accent-indigo-500"
+                            />
+                            <img src={person.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                            <span className="min-w-0">
+                              <span className="block text-xs font-semibold text-slate-200 truncate">{person.name}</span>
+                              <span className="block text-[10px] text-slate-500 truncate">{person.handle}</span>
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-800/70">
+                    {searchingMembers ? (
+                      <p className="px-3 py-3 text-[11px] text-slate-500">Searching...</p>
+                    ) : memberSearchResults.length === 0 ? (
+                      <p className="px-3 py-3 text-[11px] text-slate-500">No people found.</p>
+                    ) : (
+                      memberSearchResults.map((person) => (
+                        <label
+                          key={person.id}
+                          className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-900 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedParticipantIds.includes(person.id)}
+                            onChange={() => toggleParticipant(person.id)}
+                            className="accent-indigo-500"
+                          />
+                          <img src={person.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                          <span className="min-w-0">
+                            <span className="block text-xs font-semibold text-slate-200 truncate">{person.name}</span>
+                            <span className="block text-[10px] text-slate-500 truncate">{person.handle}</span>
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={creating}
@@ -1205,6 +1533,8 @@ export const GroupSessionPage: React.FC = () => {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
