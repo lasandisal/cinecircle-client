@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Users, Flame, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { socialService, type ActiveCircleItem } from '../../services/social.service';
+import { useAppSelector } from '../../hooks/useAppRedux';
 
 export const ActiveCirclesBar: React.FC = () => {
   const [circles, setCircles] = useState<ActiveCircleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     const fetchCircles = async () => {
@@ -21,7 +23,7 @@ export const ActiveCirclesBar: React.FC = () => {
     fetchCircles();
     const refreshTimer = window.setInterval(fetchCircles, 15000);
     return () => window.clearInterval(refreshTimer);
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <div className="w-full bg-slate-900/40 border border-slate-800/80 rounded-2xl p-3 sm:p-4 space-y-2.5 sm:space-y-3 backdrop-blur-sm">

@@ -53,6 +53,7 @@ export const GroupSessionPage: React.FC = () => {
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [reopeningSession, setReopeningSession] = useState(false);
   const [allCircles, setAllCircles] = useState<ActiveCircleItem[]>([]);
   const [loadingAllCircles, setLoadingAllCircles] = useState(false);
   const showAllCircles = searchParams.get('view') === 'all';
@@ -100,7 +101,7 @@ export const GroupSessionPage: React.FC = () => {
     fetchAllCircles(true);
     const refreshTimer = window.setInterval(() => fetchAllCircles(false), 10000);
     return () => window.clearInterval(refreshTimer);
-  }, [showAllCircles]);
+  }, [showAllCircles, isAuthenticated]);
 
   useEffect(() => {
     const query = memberSearch.trim();
@@ -194,6 +195,16 @@ export const GroupSessionPage: React.FC = () => {
       socketService.onSessionFinalized((payload) => {
         if (payload?.session?._id !== roomSessionId) return;
         applyFinalizedPayload(payload);
+      });
+
+      socketService.onSessionReopened((payload) => {
+        if (payload?.session?._id !== roomSessionId) return;
+        setActiveSession(payload.session as GroupSessionDetail);
+        setAllVotes(payload.votes || []);
+        setVotedMap({});
+        setAiPitch(null);
+        setAiPitchGenerated(false);
+        setCompromiseScores([]);
       });
 
       socketService.onSessionError((payload) => {
@@ -377,6 +388,33 @@ export const GroupSessionPage: React.FC = () => {
       setError(err.response?.data?.error || 'Failed to delete the circle.');
     } finally {
       setDeletingSession(false);
+    }
+  };
+
+  const handleStartNewRound = async () => {
+    if (!activeSession || !user || activeSession.host?._id !== user._id) return;
+    if (
+      !window.confirm(
+        'Start a new voting round in this room? The current votes and winner will be cleared, but the shortlist and room code will remain.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setReopeningSession(true);
+      const result = await sessionService.reopenSession(activeSession._id);
+      setActiveSession(result.session);
+      setAllVotes(result.votes || []);
+      setVotedMap({});
+      setAiPitch(null);
+      setAiPitchGenerated(false);
+      setCompromiseScores([]);
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to start a new round.');
+    } finally {
+      setReopeningSession(false);
     }
   };
 
@@ -669,6 +707,15 @@ export const GroupSessionPage: React.FC = () => {
                   Invite Members
                 </button>
               )}
+              {isHost && activeSession.status === 'closed' && (
+                <button
+                  onClick={() => void handleStartNewRound()}
+                  disabled={reopeningSession}
+                  className="text-xs font-semibold text-indigo-300 hover:text-indigo-200 disabled:opacity-50 cursor-pointer"
+                >
+                  {reopeningSession ? 'Starting...' : 'Start New Round'}
+                </button>
+              )}
               {isHost && (
                 <button
                   onClick={() => void handleDeleteSession()}
@@ -735,8 +782,17 @@ export const GroupSessionPage: React.FC = () => {
         )}
 
         {/* Final Winning Decision Banner */}
-        {activeSession.status === 'closed' && activeSession.finalPick && (
+        {activeSession.status === 'closed' && (
           <div className="bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+            {!activeSession.finalPick && (
+              <div className="text-center">
+                <Trophy className="w-10 h-10 mx-auto text-amber-400 mb-3" />
+                <h2 className="text-2xl font-black text-white">Decision Complete</h2>
+                <p className="text-sm text-slate-300 mt-2">
+                  This room was locked without a winning title.
+                </p>
+              </div>
+            )} {activeSession.finalPick && (
             <div className="flex flex-col md:flex-row items-center gap-6">
               <img
                 src={activeSession.finalPick.posterUrl}
@@ -746,7 +802,7 @@ export const GroupSessionPage: React.FC = () => {
               <div className="space-y-3 flex-1 text-center md:text-left">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black uppercase tracking-wider">
                   <Trophy className="w-4 h-4 text-amber-400" />
-                  <span>The Group Compromise Winner</span>
+                  <span>Decision Complete · Group Winner</span>
                 </div>
                 <h2 className="text-3xl font-black text-white">{activeSession.finalPick.name}</h2>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
@@ -784,49 +840,16 @@ export const GroupSessionPage: React.FC = () => {
                     </p>
                   </div>
                 )}
-
-                {/* Compromise score breakdown: the actual per-title scores. */}
                 {compromiseScores.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Compromise scores (Σ strength ÷ participants)
-                    </p>
-                    <div className="space-y-1">
-                      {compromiseScores
-                        .slice()
-                        .sort((a, b) => b.score - a.score)
-                        .map((s) => {
-                          const entry = (activeSession.shortlist || []).find(
-                            (t: any) => (t._id || t).toString() === s.titleId
-                          );
-                          return (
-                            <div
-                              key={s.titleId}
-                              className="flex items-center justify-between text-[11px]"
-                            >
-                              <span className="text-slate-300 truncate">
-                                {entry?.name || s.titleId}
-                              </span>
-                              <span
-                                className={`font-bold shrink-0 ml-2 ${
-                                  s.score > 0
-                                    ? 'text-emerald-400'
-                                    : s.score < 0
-                                      ? 'text-rose-400'
-                                      : 'text-slate-500'
-                                }`}
-                              >
-                                {s.score > 0 ? '+' : ''}
-                                {s.score}
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Decision calculated from {compromiseScores.length} candidate score
+                    {compromiseScores.length === 1 ? '' : 's'}.
+                  </p>
                 )}
+
               </div>
             </div>
+            )}
           </div>
         )}
 
@@ -1275,8 +1298,8 @@ export const GroupSessionPage: React.FC = () => {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white font-['Outfit']">All Active Circles</h1>
-              <p className="text-xs text-slate-400 mt-1">Join an open watch decision room with its code.</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-white font-['Outfit']">All Circles</h1>
+              <p className="text-xs text-slate-400 mt-1">Open rooms and your completed watch decisions.</p>
             </div>
           </div>
 
@@ -1284,7 +1307,7 @@ export const GroupSessionPage: React.FC = () => {
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
               <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
               <h2 className="text-sm font-bold text-slate-200">Loading active circles...</h2>
-              <p className="text-xs text-slate-500 mt-1">Checking for open watch rooms.</p>
+              <p className="text-xs text-slate-500 mt-1">Checking for available and completed rooms.</p>
             </div>
           ) : allCircles.length === 0 ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
@@ -1313,6 +1336,11 @@ export const GroupSessionPage: React.FC = () => {
                     <span className="block text-xs text-slate-400 mt-1">
                       Hosted by {circle.hostName} · {circle.participantsCount} participant(s)
                     </span>
+                    {circle.isCompleted && (
+                      <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                        Decision complete
+                      </span>
+                    )}
                   </span>
                   <ArrowRight className="w-4 h-4 text-indigo-400 shrink-0" />
                 </Link>

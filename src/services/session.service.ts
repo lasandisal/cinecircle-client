@@ -67,6 +67,12 @@ export const sessionService = {
     invalidateCache(['/sessions/active', '/sessions/code/']);
   },
 
+  async reopenSession(sessionId: string): Promise<{ session: GroupSessionDetail; votes: any[] }> {
+    const res = await api.post(`/sessions/${sessionId}/reopen`);
+    invalidateCache(['/sessions/active', '/sessions/code/']);
+    return res.data.data;
+  },
+
   /**
    * Add a movie or show to session shortlist
    */

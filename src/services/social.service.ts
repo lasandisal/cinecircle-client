@@ -22,6 +22,7 @@ export interface ActiveCircleItem {
   participantsCount: number;
   genre: string;
   isLive: boolean;
+  isCompleted: boolean;
 }
 
 export const socialService = {
@@ -51,6 +52,7 @@ export const socialService = {
       participantsCount: s.participants?.length || 1,
       genre: s.constraints?.moodFilter || 'Featured',
       isLive: s.status === 'open',
+      isCompleted: s.status === 'closed',
     }));
 
     let featuredPoll: GroupPollProps | undefined;

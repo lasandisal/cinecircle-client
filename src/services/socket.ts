@@ -168,6 +168,10 @@ class SocketService {
     this.socket?.on('session:finalized', handler);
   }
 
+  onSessionReopened(handler: (payload: { session: any; votes?: any[] }) => void): void {
+    this.socket?.on('session:reopened', handler);
+  }
+
   onParticipantJoined(handler: (payload: { sessionId: string; user?: { id: string; name?: string } }) => void): void {
     this.socket?.on('participant:joined', handler);
   }
