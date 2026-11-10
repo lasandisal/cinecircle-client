@@ -15,6 +15,7 @@ export interface NotificationItem {
   read: boolean;
   actionUrl?: string;
   actionText?: string;
+  requestId?: string;
 }
 
 const STORAGE_KEY = 'cinecircle_read_notifications_v2';
@@ -26,6 +27,8 @@ export const NotificationsDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [requestActionId, setRequestActionId] = useState<string | null>(null);
+  const [requestActionError, setRequestActionError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'circles'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +105,22 @@ export const NotificationsDropdown: React.FC = () => {
       persistReadIds(readIds);
       return updated;
     });
+  };
+
+  const respondToConnectionRequest = async (notification: NotificationItem, status: 'accepted' | 'rejected') => {
+    if (!notification.requestId) return;
+
+    try {
+      setRequestActionId(notification.id);
+      setRequestActionError(null);
+      await userService.respondToConnection(notification.requestId, status);
+      setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+    } catch (error) {
+      console.error(`Failed to ${status === 'accepted' ? 'accept' : 'ignore'} connection request:`, error);
+      setRequestActionError('Unable to update this request. Please try again.');
+    } finally {
+      setRequestActionId(null);
+    }
   };
 
   // Close when clicking outside
@@ -258,7 +277,7 @@ export const NotificationsDropdown: React.FC = () => {
                       key={n.id}
                       onClick={() => {
                         markAsRead(n.id);
-                        if (n.actionUrl) {
+                        if (n.actionUrl && !n.requestId) {
                           setIsOpen(false);
                           navigate(n.actionUrl);
                         }
@@ -284,9 +303,22 @@ export const NotificationsDropdown: React.FC = () => {
                       {/* Body */}
                       <div className="flex-1 min-w-0 space-y-1">
                         <p className="text-xs text-slate-200 leading-snug">
-                          <strong className="text-white font-semibold hover:underline">
-                            {n.actorName}
-                          </strong>{' '}
+                          {n.actionUrl ? (
+                            <Link
+                              to={n.actionUrl}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(n.id);
+                                setIsOpen(false);
+                              }}
+                              className="text-white font-semibold hover:underline"
+                            >
+                              {n.actorName}
+                            </Link>
+                          ) : (
+                            <strong className="text-white font-semibold">{n.actorName}</strong>
+                          )}
+                          {' '}
                           {n.title}
                         </p>
 
@@ -299,7 +331,34 @@ export const NotificationsDropdown: React.FC = () => {
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-[10px] text-slate-500">{n.timestamp}</span>
 
-                          {n.actionText && (
+                          {n.requestId ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={requestActionId === n.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(n.id);
+                                  void respondToConnectionRequest(n, 'accepted');
+                                }}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                              >
+                                {requestActionId === n.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Accept'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={requestActionId === n.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(n.id);
+                                  void respondToConnectionRequest(n, 'rejected');
+                                }}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-300 text-[11px] font-semibold rounded-lg border border-slate-700 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                              >
+                                Ignore
+                              </button>
+                            </div>
+                          ) : n.actionText && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -316,6 +375,9 @@ export const NotificationsDropdown: React.FC = () => {
                             </button>
                           )}
                         </div>
+                        {requestActionError && requestActionId === null && n.requestId && (
+                          <p className="text-[10px] text-rose-400">{requestActionError}</p>
+                        )}
                       </div>
 
                       {!n.read && (
