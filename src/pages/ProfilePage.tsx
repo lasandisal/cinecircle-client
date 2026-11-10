@@ -69,19 +69,12 @@ export const ProfilePage: React.FC = () => {
 
   // Social graph modal
   const [connectionsOpen, setConnectionsOpen] = useState(false);
-  const [connectionsTab, setConnectionsTab] = useState<'mutuals' | 'following' | 'followers'>('mutuals');
   const [graph, setGraph] = useState<ConnectionGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
 
-  const graphList: ConnectionPerson[] =
-    connectionsTab === 'mutuals'
-      ? graph?.mutuals ?? []
-      : connectionsTab === 'following'
-        ? graph?.following ?? []
-        : graph?.followers ?? [];
+  const graphList: ConnectionPerson[] = graph?.mutuals ?? [];
 
-  const openConnections = async (tab: 'mutuals' | 'following' | 'followers') => {
-    setConnectionsTab(tab);
+  const openConnections = async () => {
     setConnectionsOpen(true);
     if (graph) return;
     setGraphLoading(true);
@@ -576,7 +569,7 @@ export const ProfilePage: React.FC = () => {
 
               {/* Only reciprocal follow edges count as accepted connections. */}
               <button
-                onClick={() => openConnections('mutuals')}
+                onClick={() => openConnections()}
                 className="hover:scale-105 transition-transform cursor-pointer group"
                 title="Accepted connections"
               >
@@ -1384,26 +1377,10 @@ export const ProfilePage: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
-              {(
-                [
-                  ['mutuals', 'Connections', graph?.counts.mutualConnectionsCount ?? 0],
-                  ['following', 'Following', graph?.counts.followingCount ?? 0],
-                  ['followers', 'Followers', graph?.counts.followersCount ?? 0],
-                ] as const
-              ).map(([key, label, count]) => (
-                <button
-                  key={key}
-                  onClick={() => setConnectionsTab(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    connectionsTab === key
-                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 border border-transparent'
-                  }`}
-                >
-                  {label} ({count})
-                </button>
-              ))}
+            <div className="border-b border-slate-800/80 pb-3">
+              <span className="inline-flex px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Connections ({graph?.counts.mutualConnectionsCount ?? 0})
+              </span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -1411,11 +1388,7 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-center text-xs text-slate-500 py-8">Loading network...</p>
               ) : graphList.length === 0 ? (
                 <p className="text-center text-xs text-slate-500 py-8">
-                  {connectionsTab === 'mutuals'
-                    ? 'No mutual connections yet. Connections are members who follow you and that you follow back.'
-                    : connectionsTab === 'following'
-                      ? `${profile?.name} is not following anyone yet.`
-                      : 'No followers yet.'}
+                  No connections yet.
                 </p>
               ) : (
                 graphList.map((person) => (
