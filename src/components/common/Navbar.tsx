@@ -34,6 +34,19 @@ export const Navbar: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Recent searches - stores actual resolved entities (titles/members the user
+  // actually selected), not every partial/typo keystroke. Max 5, persisted.
+  type RecentSearchEntry = {
+    type: 'title' | 'member';
+    id: string;
+    name: string;
+    posterOrAvatar: string;
+    year?: number;
+  };
+  const [recentSearches, setRecentSearches] = useState<RecentSearchEntry[]>([]);
+  const RECENT_SEARCHES_KEY = 'cinecircle_recent_searches_v2';
+  const MAX_RECENT_SEARCHES = 5;
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +87,21 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Load recent searches from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentSearches(parsed.slice(0, MAX_RECENT_SEARCHES));
+        }
+      }
+    } catch {
+      // ignore localStorage errors
+    }
+  }, []);
+
   // Debounced search logic
   const handleSearch = useCallback(async (query: string) => {
     const normalizedQuery = query.trim();
@@ -110,6 +138,42 @@ export const Navbar: React.FC = () => {
     setIsSearching(false);
   }, [isAuthenticated]);
 
+  // Add a resolved entity (title or member) to recent searches when the user
+  // actually selects it - not every partial/typo keystroke.
+  const addRecentSearch = useCallback((entry: RecentSearchEntry) => {
+    setRecentSearches((prev) => {
+      // Remove any existing entry with the same id, then prepend.
+      const filtered = prev.filter((e) => e.id !== entry.id);
+      const next = [entry, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+      try {
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      } catch {
+        // ignore localStorage errors
+      }
+      return next;
+    });
+  }, []);
+
+  // Remove a specific recent search by id
+  const removeRecentSearch = useCallback((id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setRecentSearches((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      try {
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      } catch {
+        // ignore localStorage errors
+      }
+      return next;
+    });
+  }, []);
+
+  // Select a recent search: fill the input with the name and open the dropdown
+  const selectRecentSearch = useCallback((entry: RecentSearchEntry) => {
+    setSearchQuery(entry.name);
+    setSearchOpen(true);
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
@@ -124,6 +188,13 @@ export const Navbar: React.FC = () => {
   }, [searchQuery, handleSearch]);
 
   const handleSelectTitle = (title: Title) => {
+    addRecentSearch({
+      type: 'title',
+      id: title._id || title.tmdbId,
+      name: title.name,
+      posterOrAvatar: title.posterUrl || '',
+      year: title.releaseYear,
+    });
     setSearchOpen(false);
     setMobileSearchOpen(false);
     setSearchQuery('');
@@ -189,146 +260,216 @@ export const Navbar: React.FC = () => {
             </kbd>
 
             {/* Desktop Search Results Dropdown */}
-            {searchOpen && searchQuery.trim().length >= 2 && (
+            {searchOpen && (searchQuery.trim().length >= 2 || recentSearches.length > 0) && (
               <div className="absolute left-0 top-full mt-2 w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden z-50 animate-in fade-in duration-150">
-                <div className="p-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>
-                    {isSearching
-                      ? 'Searching catalogue...'
-                      : `${searchResults.length} title${searchResults.length === 1 ? '' : 's'} • ${userResults.length} member${userResults.length === 1 ? '' : 's'} found`}
-                  </span>
-                  {isSearching && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
-                </div>
-
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/50">
-                  {searchResults.length > 0 ? (
-                    searchResults.map((title) => (
-                      <button
-                        key={title._id || title.tmdbId}
-                        onClick={() => handleSelectTitle(title)}
-                        className="w-full p-2.5 flex items-start gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
-                      >
-                        {/* Poster */}
-                        <div className="w-10 h-14 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
-                          {title.posterUrl ? (
-                            <img
-                              src={title.posterUrl}
-                              alt={title.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-600">
-                              <Film className="w-4 h-4" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
-                              {title.name}
-                            </span>
-                            <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
-                              {title.type === 'film' ? 'Film' : 'TV'}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                            {title.releaseYear && <span>{title.releaseYear}</span>}
-                            {title.runtimeMinutes > 0 && <span>• {title.runtimeMinutes}m</span>}
-                            {title.voteAverage ? (
-                              <span className="flex items-center gap-0.5 text-amber-400">
-                                <Star className="w-2.5 h-2.5 fill-amber-400" />
-                                {title.voteAverage}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {/* Genres */}
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {title.genres.slice(0, 2).map((g) => (
-                              <span
-                                key={g}
-                                className="text-[9px] px-1.5 py-0.2 bg-slate-800/80 text-slate-300 rounded"
-                              >
-                                {g}
-                              </span>
-                            ))}
-                          </div>
-
-                          {/* Streaming Providers */}
-                          {title.watchProviders && title.watchProviders.length > 0 && (
-                            <div className="flex items-center gap-1 mt-1.5">
-                              {title.watchProviders.slice(0, 3).map((wp, idx) => (
-                                <StreamingBadge key={idx} service={wp.service} size="sm" />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    ))
-                  ) : !isSearching ? (
-                    <div className="p-6 text-center space-y-1">
-                      <p className="text-xs text-slate-300 font-medium">No titles found</p>
-                      <p className="text-[11px] text-slate-500">
-                        Try searching for "Dune", "Bear", "Severance", "Spider", or "Stranger"
-                      </p>
+                {/* Recent Searches section (shown when no active query >= 2 chars) */}
+                {searchQuery.trim().length < 2 && recentSearches.length > 0 && (
+                  <div className="p-2 border-b border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recent Searches</p>
                     </div>
-                  ) : null}
-
-                  {/* Member results section */}
-                  {userResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 border-b border-slate-800">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
-                      </div>
-                      {userResults.map((person) => (
-                        <Link
-                          key={person.id}
-                          to={`/profile/${person.id}`}
-                          onClick={() => {
-                            setSearchOpen(false);
-                            setMobileSearchOpen(false);
-                            setSearchQuery('');
+                    <div className="space-y-1">
+                      {recentSearches.map((entry) => (
+                        <button
+                          key={entry.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectRecentSearch(entry);
                           }}
                           className="w-full p-2.5 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
                         >
-                          <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
-                            {person.avatar ? (
-                              <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                          <div className="w-8 h-10 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
+                            {entry.posterOrAvatar ? (
+                              <img
+                                src={entry.posterOrAvatar}
+                                alt={entry.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
-                                {person.name.charAt(0).toUpperCase()}
+                              <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                <span className="text-[10px] font-bold">
+                                  {entry.name.charAt(0).toUpperCase()}
+                                </span>
                               </div>
                             )}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
-                                {person.name}
-                              </span>
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
-                                {person.handle}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                              <span>{person.stats.watchedCount} watched</span>
-                            </div>
-                          </div>
-                        </Link>
+                          <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
+                            {entry.name}
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
+                            entry.type === 'title'
+                              ? 'bg-slate-800/80 border border-slate-700/60'
+                              : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
+                          }`}>
+                            {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeRecentSearch(entry.id);
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400"
+                            title="Remove from recent"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </button>
                       ))}
-                      {userResults.length === 0 && searchResults.length === 0 && !isSearching && (
+                    </div>
+                  </div>
+                )}
+
+                {/* Live search results section (shown when query >= 2 chars) */}
+                {searchQuery.trim().length >= 2 && (
+                  <>
+                    <div className="p-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>
+                        {isSearching
+                          ? 'Searching catalogue...'
+                          : `${searchResults.length} title${searchResults.length === 1 ? '' : 's'} • ${userResults.length} member${userResults.length === 1 ? '' : 's'} found`}
+                      </span>
+                      {isSearching && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/50">
+                      {searchResults.length > 0 ? (
+                        searchResults.map((title) => (
+                          <button
+                            key={title._id || title.tmdbId}
+                            onClick={() => handleSelectTitle(title)}
+                            className="w-full p-2.5 flex items-start gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                          >
+                            {/* Poster */}
+                            <div className="w-10 h-14 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
+                              {title.posterUrl ? (
+                                <img
+                                  src={title.posterUrl}
+                                  alt={title.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                  <Film className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                                  {title.name}
+                                </span>
+                                <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
+                                  {title.type === 'film' ? 'Film' : 'TV'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                {title.releaseYear && <span>{title.releaseYear}</span>}
+                                {title.runtimeMinutes > 0 && <span>• {title.runtimeMinutes}m</span>}
+                                {title.voteAverage ? (
+                                  <span className="flex items-center gap-0.5 text-amber-400">
+                                    <Star className="w-2.5 h-2.5 fill-amber-400" />
+                                    {title.voteAverage}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {/* Genres */}
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {title.genres.slice(0, 2).map((g) => (
+                                  <span
+                                    key={g}
+                                    className="text-[9px] px-1.5 py-0.2 bg-slate-800/80 text-slate-300 rounded"
+                                  >
+                                    {g}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* Streaming Providers */}
+                              {title.watchProviders && title.watchProviders.length > 0 && (
+                                <div className="flex items-center gap-1 mt-1.5">
+                                  {title.watchProviders.slice(0, 3).map((wp, idx) => (
+                                    <StreamingBadge key={idx} service={wp.service} size="sm" />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      ) : !isSearching ? (
                         <div className="p-6 text-center space-y-1">
-                          <p className="text-xs text-slate-300 font-medium">No members found</p>
+                          <p className="text-xs text-slate-300 font-medium">No titles found</p>
                           <p className="text-[11px] text-slate-500">
-                            Try searching for a name or handle
+                            Try searching for "Dune", "Bear", "Severance", "Spider", or "Stranger"
                           </p>
                         </div>
+                      ) : null}
+
+                      {/* Member results section */}
+                      {userResults.length > 0 && (
+                        <>
+                          <div className="px-3 py-2 border-b border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
+                          </div>
+                          {userResults.map((person) => (
+                            <Link
+                              key={person.id}
+                              to={`/profile/${person.id}`}
+                              onClick={() => {
+                                addRecentSearch({
+                                  type: 'member',
+                                  id: person.id,
+                                  name: person.name,
+                                  posterOrAvatar:
+                                    person.avatar ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=6366f1&color=fff`,
+                                });
+                                setSearchOpen(false);
+                                setMobileSearchOpen(false);
+                                setSearchQuery('');
+                              }}
+                              className="w-full p-2.5 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
+                                {person.avatar ? (
+                                  <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
+                                    {person.name.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                                    {person.name}
+                                  </span>
+                                  <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
+                                    {person.handle}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                  <span>{person.stats.watchedCount} watched</span>
+                                </div>
+                              </div>
+                            </Link>
+                          ))}
+                          {userResults.length === 0 && searchResults.length === 0 && !isSearching && (
+                            <div className="p-6 text-center space-y-1">
+                              <p className="text-xs text-slate-300 font-medium">No members found</p>
+                              <p className="text-[11px] text-slate-500">
+                                Try searching for a name or handle
+                              </p>
+                            </div>
+                          )}
+                        </>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -542,87 +683,157 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Search Results */}
-          {searchQuery.trim().length >= 2 && (
+          {(searchQuery.trim().length >= 2 || recentSearches.length > 0) && (
             <div className="mt-2 bg-slate-900 border border-slate-800 rounded-2xl max-h-72 overflow-y-auto divide-y divide-slate-800/50">
-              {isSearching ? (
-                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                  <span>Searching...</span>
-                </div>
-              ) : searchResults.length > 0 || userResults.length > 0 ? (
-                <>
-                  {searchResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 border-b border-slate-800">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Titles</p>
-                      </div>
-                      {searchResults.map((title) => (
+              {/* Recent Searches (mobile) */}
+              {searchQuery.trim().length < 2 && recentSearches.length > 0 && (
+                <div className="p-3 border-b border-slate-800">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Recent Searches
+                  </p>
+                  <div className="space-y-1">
+                    {recentSearches.map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectRecentSearch(entry);
+                        }}
+                        className="w-full p-2 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                      >
+                        <div className="w-6 h-8 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
+                          {entry.posterOrAvatar ? (
+                            <img
+                              src={entry.posterOrAvatar}
+                              alt={entry.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-600">
+                              <span className="text-[9px] font-bold">
+                                {entry.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
+                          {entry.name}
+                        </span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
+                          entry.type === 'title'
+                            ? 'bg-slate-800/80 border border-slate-700/60'
+                            : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
+                        }`}>
+                          {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
+                        </span>
                         <button
-                          key={title._id || title.tmdbId}
-                          onClick={() => handleSelectTitle(title)}
-                          className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
-                        >
-                          <div className="w-9 h-12 rounded bg-slate-950 overflow-hidden shrink-0">
-                            {title.posterUrl ? (
-                              <img
-                                src={title.posterUrl}
-                                alt={title.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-600">
-                                <Film className="w-3 h-3" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-white truncate">{title.name}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {title.releaseYear} • {title.type === 'film' ? 'Film' : 'TV'}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  )}
-                  {userResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 border-b border-slate-800">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
-                      </div>
-                      {userResults.map((person) => (
-                        <Link
-                          key={person.id}
-                          to={`/profile/${person.id}`}
-                          onClick={() => {
-                            setSearchOpen(false);
-                            setMobileSearchOpen(false);
-                            setSearchQuery('');
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeRecentSearch(entry.id);
                           }}
-                          className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                          className="p-1 text-slate-500 hover:text-rose-400"
+                          title="Remove from recent"
                         >
-                          <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
-                            {person.avatar ? (
-                              <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
-                                {person.name.charAt(0).toUpperCase()}
+                          <X className="w-3 h-3" />
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Live search results (mobile) */}
+              {searchQuery.trim().length >= 2 && (
+                <>
+                  {isSearching ? (
+                    <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                      <span>Searching...</span>
+                    </div>
+                  ) : searchResults.length > 0 || userResults.length > 0 ? (
+                    <>
+                      {searchResults.length > 0 && (
+                        <>
+                          <div className="px-3 py-2 border-b border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Titles</p>
+                          </div>
+                          {searchResults.map((title) => (
+                            <button
+                              key={title._id || title.tmdbId}
+                              onClick={() => handleSelectTitle(title)}
+                              className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                            >
+                              <div className="w-9 h-12 rounded bg-slate-950 overflow-hidden shrink-0">
+                                {title.posterUrl ? (
+                                  <img
+                                    src={title.posterUrl}
+                                    alt={title.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                    <Film className="w-3 h-3" />
+                                  </div>
+                                )}
                               </div>
-                            )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-white truncate">{title.name}</p>
+                                <p className="text-[10px] text-slate-400">
+                                  {title.releaseYear} • {title.type === 'film' ? 'Film' : 'TV'}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {userResults.length > 0 && (
+                        <>
+                          <div className="px-3 py-2 border-b border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-white truncate">{person.name}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {person.handle} • {person.stats.watchedCount} watched
-                            </p>
-                          </div>
-                        </Link>
-                      ))}
+                          {userResults.map((person) => (
+                            <Link
+                              key={person.id}
+                              to={`/profile/${person.id}`}
+                              onClick={() => {
+                                addRecentSearch({
+                                  type: 'member',
+                                  id: person.id,
+                                  name: person.name,
+                                  posterOrAvatar:
+                                    person.avatar ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=6366f1&color=fff`,
+                                });
+                                setSearchOpen(false);
+                                setMobileSearchOpen(false);
+                                setSearchQuery('');
+                              }}
+                              className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-slate-800/50"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 overflow-hidden shrink-0 flex-shrink-0">
+                                {person.avatar ? (
+                                  <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-bold">
+                                    {person.name.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-white truncate">{person.name}</p>
+                                <p className="text-[10px] text-slate-400">
+                                  {person.handle} • {person.stats.watchedCount} watched
+                                </p>
+                              </div>
+                            </Link>
+                          ))}
+                        </>
+                      )}
                     </>
+                  ) : (
+                    <div className="p-4 text-center text-xs text-slate-400">No results found</div>
                   )}
                 </>
-              ) : (
-                <div className="p-4 text-center text-xs text-slate-400">No results found</div>
               )}
             </div>
           )}
