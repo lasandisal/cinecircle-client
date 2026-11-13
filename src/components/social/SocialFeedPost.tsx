@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles, Tv } from 'lucide-react';
+import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StreamingBadge } from '../common/StreamingBadge';
 
 export interface FeedPostProps {
   id: string;
@@ -122,25 +121,6 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
             "{post.reviewText}"
           </p>
 
-          {/* Streaming badges - real availability only.
-              These used to be a hardcoded ['Max','Prime Video','Netflix']
-              on every single post regardless of the title. */}
-          {post.titleData.streamingServices?.length > 0 ? (
-            <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-              <span className="text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-0.5">
-                <Tv className="w-2.5 h-2.5 text-cyan-400" /> Watch On:
-              </span>
-              {post.titleData.streamingServices.map((service) => (
-                <StreamingBadge key={service} service={service} size="sm" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 pt-0.5">
-              <span className="text-[9px] sm:text-[10px] text-slate-600 flex items-center gap-0.5">
-                <Tv className="w-2.5 h-2.5 text-slate-600" /> Streaming availability unknown
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
