@@ -155,10 +155,10 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
             </div>
           </div>
 
-          {/* Owned streaming services - from the member's actual subscriptions */}
+          {/* Subscribed streaming services - from the member's actual subscriptions */}
           <div className="space-y-1.5">
             <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-              <Tv className="w-3 h-3 text-cyan-400" /> Owned Services
+              <Tv className="w-3 h-3 text-cyan-400" /> Subscribed Services
             </span>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
               {(user.subscribedServices || []).length > 0 ? (
