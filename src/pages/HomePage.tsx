@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Loader2,
@@ -25,6 +25,9 @@ import { useAppSelector } from '../hooks/useAppRedux';
 import type { Title } from '../types';
 
 type FeedTab = 'for-you' | 'connections' | 'trending';
+
+/** Reviews per feed request. The backend caps this at 30. */
+const FEED_PAGE_SIZE = 15;
 
 const titleHref = (title: Title) =>
   `/title/${title._id || title.tmdbId}${title.type ? `?type=${title.type}` : ''}`;
@@ -278,6 +281,13 @@ export const HomePage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  // Paging: page 1 is replaced on tab change/refresh; later pages are appended.
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
   const [trendingTitles, setTrendingTitles] = useState<Title[]>([]);
   const [trendingSource, setTrendingSource] = useState<'tmdb' | 'catalogue'>('catalogue');
   const [trendingLoading, setTrendingLoading] = useState<boolean>(true);
@@ -290,8 +300,11 @@ export const HomePage: React.FC = () => {
     if (isRefresh) setRefreshing(true);
     try {
       // ActiveCirclesBar loads its own sessions; the feed only needs posts here.
-      const feedPosts = await socialService.getFeed(1, 15, feedFilter);
-      setPosts(feedPosts);
+      const feed = await socialService.getFeed(1, FEED_PAGE_SIZE, feedFilter);
+      setPosts(feed.posts);
+      setPage(1);
+      setHasMore(feed.hasMore);
+      setLoadMoreError(null);
     } catch (err) {
       console.error('Failed to load live feed data:', err);
     } finally {
@@ -299,6 +312,46 @@ export const HomePage: React.FC = () => {
       setRefreshing(false);
     }
   };
+
+  /**
+   * Append the next page. Deduped by id because offset paging shifts when
+   * someone posts a review between two requests.
+   */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const nextPage = page + 1;
+      const feed = await socialService.getFeed(nextPage, FEED_PAGE_SIZE, feedFilter);
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...feed.posts.filter((p) => !seen.has(p.id))];
+      });
+      setPage(nextPage);
+      setHasMore(feed.hasMore);
+    } catch (err) {
+      console.error('Failed to load more feed posts:', err);
+      // Stop the sentinel re-triggering until the member asks to retry.
+      setLoadMoreError('Could not load more reviews.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, page, feedFilter]);
+
+  // Infinite scroll: pull the next page when the sentinel nears the viewport.
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMore || loadMoreError) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMore();
+      },
+      { rootMargin: '400px 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadMoreError]);
 
   const loadTrending = async () => {
     setTrendingLoading(true);
@@ -353,17 +406,46 @@ export const HomePage: React.FC = () => {
         <>
           {/* User Review Activity Cards */}
           {posts.length > 0 ? (
-            <div
-              className={
-                isAuthenticated
-                  ? 'space-y-6'
-                  : 'grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'
-              }
-            >
-              {visiblePosts.map((post) => (
-                <SocialFeedPost key={post.id} post={post} />
-              ))}
-            </div>
+            <>
+              <div
+                className={
+                  isAuthenticated
+                    ? 'space-y-6'
+                    : 'grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'
+                }
+              >
+                {visiblePosts.map((post) => (
+                  <SocialFeedPost key={post.id} post={post} />
+                ))}
+              </div>
+
+              {/* Paging footer: sentinel for infinite scroll + explicit fallback. */}
+              <div ref={loadMoreRef} className="flex flex-col items-center gap-2 py-4">
+                {loadMoreError ? (
+                  <>
+                    <p className="text-xs text-rose-400">{loadMoreError}</p>
+                    <button
+                      onClick={() => void loadMore()}
+                      disabled={loadingMore}
+                      className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/50 disabled:opacity-50 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </>
+                ) : hasMore ? (
+                  <button
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                    className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/50 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+                  >
+                    {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
+                    {loadingMore ? 'Loading more...' : 'Load more reviews'}
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-slate-600">You're all caught up.</p>
+                )}
+              </div>
+            </>
           ) : (
             <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/30 border border-slate-800/80 rounded-2xl space-y-2">
               {activeTab === 'connections' ? (

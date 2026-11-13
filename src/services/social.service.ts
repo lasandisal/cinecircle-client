@@ -13,6 +13,14 @@ export interface UserSuggestion {
   mutualCount: number;
 }
 
+export interface FeedPage {
+  posts: FeedPostProps[];
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface ActiveCircleItem {
   id: string;
   name: string;
@@ -31,9 +39,18 @@ export const socialService = {
    *
    * `filter: 'connections'` restricts activity to accepted connections.
    */
-  async getFeed(page = 1, limit = 10, filter: 'all' | 'connections' = 'all'): Promise<FeedPostProps[]> {
+  async getFeed(page = 1, limit = 10, filter: 'all' | 'connections' = 'all'): Promise<FeedPage> {
     const res = await cachedGet('/titles/feed', { params: { page, limit, filter } }, { ttlMs: 30_000, staleWhileRevalidateMs: 30_000 });
-    return res.data.data.posts || [];
+    const data = res.data.data || {};
+    const posts: FeedPostProps[] = data.posts || [];
+    return {
+      posts,
+      page: data.page ?? page,
+      limit: data.limit ?? limit,
+      total: data.total ?? posts.length,
+      // Fallback for an older backend that doesn't send hasMore yet.
+      hasMore: typeof data.hasMore === 'boolean' ? data.hasMore : posts.length >= limit,
+    };
   },
 
   /**
