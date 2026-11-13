@@ -40,7 +40,7 @@ export const watchlistService = {
    */
   async addToWatchlist(titleId: string): Promise<WatchlistItem> {
     const res = await api.post('/watchlist', { titleId });
-    invalidateCache(['/watchlist', '/watchlist/status']);
+    invalidateCache(['/watchlist', '/watchlist/status', '/users/profile', '/auth/me']);
     return res.data.data.item;
   },
 
@@ -49,7 +49,7 @@ export const watchlistService = {
    */
   async removeFromWatchlist(idOrTitleId: string): Promise<void> {
     await api.delete(`/watchlist/${idOrTitleId}`);
-    invalidateCache(['/watchlist', '/watchlist/status']);
+    invalidateCache(['/watchlist', '/watchlist/status', '/users/profile', '/auth/me']);
   },
 
   /**
@@ -57,7 +57,7 @@ export const watchlistService = {
    */
   async markAsWatched(idOrTitleId: string, watched: boolean): Promise<WatchlistItem> {
     const res = await api.patch(`/watchlist/${idOrTitleId}/watched`, { watched });
-    invalidateCache(['/watchlist', '/watchlist/status']);
+    invalidateCache(['/watchlist', '/watchlist/status', '/users/profile', '/auth/me']);
     return res.data.data.item;
   },
 
@@ -66,7 +66,7 @@ export const watchlistService = {
    */
   async rateTitle(idOrTitleId: string, rating: number): Promise<WatchlistItem> {
     const res = await api.patch(`/watchlist/${idOrTitleId}/rate`, { rating });
-    invalidateCache(['/watchlist', '/watchlist/status']);
+    invalidateCache(['/watchlist', '/watchlist/status', '/users/profile', '/auth/me']);
     return res.data.data.item;
   },
 

@@ -23,6 +23,12 @@ import {
   Tv,
   Radio,
   Sparkle,
+  Zap,
+  ShieldAlert,
+  Palette,
+  FileText,
+  Skull,
+  Compass,
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser } from '../store/slices/authSlice';
@@ -58,6 +64,12 @@ export const ProfilePage: React.FC = () => {
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [editServices, setEditServices] = useState<string[]>([]);
+
+  // Taste matrix (editable from this modal — tastes change over time)
+  const [editFavoriteGenres, setEditFavoriteGenres] = useState<string[]>([]);
+  const [editExclusions, setEditExclusions] = useState<string[]>([]);
+  const [editFavoriteTitles, setEditFavoriteTitles] = useState<string[]>([]);
+  const [hasTasteProfile, setHasTasteProfile] = useState<boolean | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Find people state
@@ -143,6 +155,10 @@ export const ProfilePage: React.FC = () => {
       setEditBio(data.bio || '');
       setEditAvatar(data.avatar || '');
       setEditServices(data.subscribedServices || []);
+      setEditFavoriteGenres(data.tasteProfile?.favoriteGenres || []);
+      setEditExclusions(data.tasteProfile?.exclusions || []);
+      setEditFavoriteTitles(data.tasteProfile?.favoriteTitleIds || []);
+      setHasTasteProfile(!!data.tasteProfile);
     } catch (err: any) {
       console.error('Failed to load profile:', err);
       setError(err.response?.data?.error || 'Unable to load profile data');
@@ -237,6 +253,9 @@ export const ProfilePage: React.FC = () => {
         bio: editBio,
         avatar: editAvatar,
         subscribedServices: editServices,
+        favoriteGenres: editFavoriteGenres,
+        exclusions: editExclusions,
+        favoriteTitles: editFavoriteTitles,
       });
 
       // Update Redux state
@@ -260,6 +279,12 @@ export const ProfilePage: React.FC = () => {
           bio: updated.bio,
           avatar: updated.avatar,
           subscribedServices: updated.subscribedServices,
+          tasteProfile: updated.tasteProfile
+            ? {
+                ...prev.tasteProfile,
+                ...updated.tasteProfile,
+              }
+            : prev.tasteProfile,
         };
       });
 
@@ -282,11 +307,62 @@ export const ProfilePage: React.FC = () => {
   // Available streaming services options
   const availableServices = ['Netflix', 'Max', 'Prime Video', 'Apple TV+', 'Disney+', 'Hulu', 'Paramount+'];
 
+  // Taste matrix genre options (same as onboarding wizard)
+  const availableGenres = [
+    { name: 'Science Fiction', color: 'from-cyan-500/20 to-blue-600/30 border-cyan-500/40 text-cyan-300', icon: Zap },
+    { name: 'Thriller', color: 'from-amber-500/20 to-rose-600/30 border-amber-500/40 text-amber-300', icon: Flame },
+    { name: 'Drama', color: 'from-indigo-500/20 to-purple-600/30 border-indigo-500/40 text-indigo-300', icon: Film },
+    { name: 'Action', color: 'from-orange-500/20 to-red-600/30 border-orange-500/40 text-orange-300', icon: Flame },
+    { name: 'Comedy', color: 'from-yellow-500/20 to-amber-600/30 border-yellow-500/40 text-yellow-300', icon: Smile },
+    { name: 'Crime', color: 'from-red-500/20 to-rose-700/30 border-red-500/40 text-red-300', icon: ShieldAlert },
+    { name: 'Mystery', color: 'from-violet-500/20 to-indigo-700/30 border-violet-500/40 text-violet-300', icon: Search },
+    { name: 'Romance', color: 'from-pink-500/20 to-rose-600/30 border-pink-500/40 text-pink-300', icon: Heart },
+    { name: 'Animation', color: 'from-emerald-500/20 to-teal-600/30 border-emerald-500/40 text-emerald-300', icon: Palette },
+    { name: 'Fantasy', color: 'from-purple-500/20 to-fuchsia-600/30 border-purple-500/40 text-purple-300', icon: Sparkles },
+    { name: 'Adventure', color: 'from-teal-500/20 to-emerald-600/30 border-teal-500/40 text-teal-300', icon: Compass },
+    { name: 'Documentary', color: 'from-blue-500/20 to-slate-600/30 border-blue-500/40 text-blue-300', icon: FileText },
+    { name: 'Horror', color: 'from-rose-900/30 to-black/60 border-rose-800/40 text-rose-300', icon: Skull },
+    { name: 'Family', color: 'from-sky-500/20 to-blue-600/30 border-sky-500/40 text-sky-300', icon: Users },
+  ];
+
+  const commonExclusions = [
+    'Horror & Jump Scares',
+    'Extreme Violence / Gore',
+    'Cheesy Romance',
+    'Musicals',
+    'Documentaries',
+    'Cartoons / Animation',
+  ];
+
   const toggleService = (svc: string) => {
     if (editServices.includes(svc)) {
       setEditServices(editServices.filter((s) => s !== svc));
     } else {
       setEditServices([...editServices, svc]);
+    }
+  };
+
+  const toggleGenre = (genre: string) => {
+    if (editFavoriteGenres.includes(genre)) {
+      setEditFavoriteGenres(editFavoriteGenres.filter((g) => g !== genre));
+    } else {
+      setEditFavoriteGenres([...editFavoriteGenres, genre]);
+    }
+  };
+
+  const toggleExclusion = (exclusion: string) => {
+    if (editExclusions.includes(exclusion)) {
+      setEditExclusions(editExclusions.filter((e) => e !== exclusion));
+    } else {
+      setEditExclusions([...editExclusions, exclusion]);
+    }
+  };
+
+  const toggleFavoriteTitle = (titleId: string) => {
+    if (editFavoriteTitles.includes(titleId)) {
+      setEditFavoriteTitles(editFavoriteTitles.filter((t) => t !== titleId));
+    } else {
+      setEditFavoriteTitles([...editFavoriteTitles, titleId]);
     }
   };
 
@@ -1277,8 +1353,127 @@ export const ProfilePage: React.FC = () => {
                       </button>
                     );
                   })}
+                  </div>
+                </div>
+
+              {/* Taste Matrix — Favorite Genres */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 block">Favorite Genres</label>
+                  <span className="text-[10px] text-slate-500">{editFavoriteGenres.length} selected</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {availableGenres.map((g) => {
+                    const isSelected = editFavoriteGenres.includes(g.name);
+                    const Icon = g.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={g.name}
+                        onClick={() => toggleGenre(g.name)}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? `${g.color.split(' ')[0].replace('from-', 'bg-')}/20 border-indigo-500 text-indigo-300`
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Icon className={`w-3 h-3 ${g.color.includes('text-cyan') ? 'text-cyan-400' : g.color.includes('text-amber') ? 'text-amber-400' : g.color.includes('text-indigo') ? 'text-indigo-400' : g.color.includes('text-orange') ? 'text-orange-400' : g.color.includes('text-yellow') ? 'text-yellow-400' : g.color.includes('text-red') ? 'text-red-400' : g.color.includes('text-violet') ? 'text-violet-400' : g.color.includes('text-pink') ? 'text-pink-400' : g.color.includes('text-emerald') ? 'text-emerald-400' : g.color.includes('text-purple') ? 'text-purple-400' : g.color.includes('text-teal') ? 'text-teal-400' : g.color.includes('text-blue') ? 'text-blue-400' : g.color.includes('text-rose') ? 'text-rose-400' : g.color.includes('text-sky') ? 'text-sky-400' : 'text-slate-400'}`} />
+                        <span>{g.name}</span>
+                        {isSelected && <Check className="w-3 h-3 text-indigo-400" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Taste Matrix — Exclusions */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 block">Exclusions (avoid these)</label>
+                  <span className="text-[10px] text-slate-500">{editExclusions.length} selected</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {commonExclusions.map((ex) => {
+                    const isSelected = editExclusions.includes(ex);
+                    return (
+                      <button
+                        type="button"
+                        key={ex}
+                        onClick={() => toggleExclusion(ex)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span>{ex}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-rose-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Taste Matrix — Favorite Titles */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 block">Favorite Titles</label>
+                  <span className="text-[10px] text-slate-500">{editFavoriteTitles.length} selected</span>
+                </div>
+                <div className="space-y-1.5">
+                  {editFavoriteTitles.map((titleId) => {
+                    const title = profile?.recentWatched?.find((w) => w.title?._id === titleId)?.title ||
+                      profile?.savedWatchlist?.find((w) => w.title?._id === titleId)?.title;
+                    return (
+                      <div key={titleId} className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
+                        <span className="text-slate-400 truncate flex-1">{title?.name || titleId}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleFavoriteTitle(titleId)}
+                          className="p-1 text-slate-500 hover:text-rose-400"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <input
+                    type="text"
+                    placeholder="Add a favorite title ID (from your watchlist)..."
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget as HTMLInputElement;
+                        const id = input.value.trim();
+                        if (id && !editFavoriteTitles.includes(id)) {
+                          setEditFavoriteTitles([...editFavoriteTitles, id]);
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-500 italic">
+                    Tip: add title IDs from titles you've watched or saved.
+                  </p>
+                </div>
+              </div>
+
+              {/* First-time taste hint */}
+              {hasTasteProfile === false && (
+                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400" />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-indigo-300">Setting your taste matrix for the first time</p>
+                    <p className="text-[10px] text-indigo-200">
+                      Don't worry — you can change your favorite genres, exclusions, and titles anytime
+                      from this edit profile modal. Your taste profile shapes circle matches and AI
+                      compromise picks.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Submit Buttons */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">

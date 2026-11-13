@@ -276,42 +276,44 @@ export const Navbar: React.FC = () => {
                             e.stopPropagation();
                             selectRecentSearch(entry);
                           }}
-                          className="w-full p-2.5 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                          className="w-full p-2.5 flex items-center justify-between gap-2 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
                         >
-                          <div className="w-8 h-10 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
-                            {entry.posterOrAvatar ? (
-                              <img
-                                src={entry.posterOrAvatar}
-                                alt={entry.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-600">
-                                <span className="text-[10px] font-bold">
-                                  {entry.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-10 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
+                              {entry.posterOrAvatar ? (
+                                <img
+                                  src={entry.posterOrAvatar}
+                                  alt={entry.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                  <span className="text-[10px] font-bold">
+                                    {entry.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
+                              {entry.name}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
+                              entry.type === 'title'
+                                ? 'bg-slate-800/80 border border-slate-700/60'
+                                : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
+                            }`}>
+                              {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
+                            </span>
                           </div>
-                          <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
-                            {entry.name}
-                          </span>
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
-                            entry.type === 'title'
-                              ? 'bg-slate-800/80 border border-slate-700/60'
-                              : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
-                          }`}>
-                            {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
-                          </span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               removeRecentSearch(entry.id);
                             }}
-                            className="p-1 text-slate-500 hover:text-rose-400"
+                            className="p-1 text-slate-500 hover:text-rose-400 shrink-0"
                             title="Remove from recent"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-3 h-3 shrink-0" />
                           </button>
                         </button>
                       ))}
@@ -699,42 +701,44 @@ export const Navbar: React.FC = () => {
                           e.stopPropagation();
                           selectRecentSearch(entry);
                         }}
-                        className="w-full p-2 flex items-center gap-3 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
+                        className="w-full p-2 flex items-center justify-between gap-2 hover:bg-slate-800/60 transition-colors text-left group cursor-pointer"
                       >
-                        <div className="w-6 h-8 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
-                          {entry.posterOrAvatar ? (
-                            <img
-                              src={entry.posterOrAvatar}
-                              alt={entry.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-600">
-                              <span className="text-[9px] font-bold">
-                                {entry.name.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-8 rounded bg-slate-950 overflow-hidden shrink-0 flex-shrink-0">
+                            {entry.posterOrAvatar ? (
+                              <img
+                                src={entry.posterOrAvatar}
+                                alt={entry.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                <span className="text-[9px] font-bold">
+                                  {entry.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
+                            {entry.name}
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
+                            entry.type === 'title'
+                              ? 'bg-slate-800/80 border border-slate-700/60'
+                              : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
+                          }`}>
+                            {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
+                          </span>
                         </div>
-                        <span className="text-xs text-slate-300 group-hover:text-white truncate min-w-0">
-                          {entry.name}
-                        </span>
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded text-slate-400 shrink-0 ${
-                          entry.type === 'title'
-                            ? 'bg-slate-800/80 border border-slate-700/60'
-                            : 'bg-indigo-950/50 border border-indigo-500/30 text-indigo-300'
-                        }`}>
-                          {entry.type === 'title' ? entry.year ? `${entry.year}` : 'Title' : 'Member'}
-                        </span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             removeRecentSearch(entry.id);
                           }}
-                          className="p-1 text-slate-500 hover:text-rose-400"
+                          className="p-1 text-slate-500 hover:text-rose-400 shrink-0"
                           title="Remove from recent"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3 h-3 shrink-0" />
                         </button>
                       </button>
                     ))}

@@ -106,7 +106,12 @@ export const TitleDetailPage: React.FC = () => {
     try {
       const nextWatched = !isWatched;
       setIsWatched(nextWatched);
+
+      // Ensure the title exists in the watchlist first (upsert is a no-op if already saved),
+      // otherwise markAsWatched hits a 404 because there's no watchlist row to update.
+      await watchlistService.addToWatchlist(title._id);
       await watchlistService.markAsWatched(title._id, nextWatched);
+
       setIsInWatchlist(true);
 
       if (currentUser) {
@@ -140,6 +145,8 @@ export const TitleDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to update watched status:', err);
+      // Revert optimistic state on failure so the UI reflects reality
+      setIsWatched(!nextWatched);
     }
   };
 

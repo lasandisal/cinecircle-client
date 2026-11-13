@@ -8,6 +8,9 @@ export interface UpdateProfilePayload {
   handle?: string;
   avatar?: string;
   subscribedServices?: string[];
+  favoriteGenres?: string[];
+  exclusions?: string[];
+  favoriteTitles?: string[];
 }
 
 export const userService = {
@@ -41,7 +44,7 @@ export const userService = {
    */
   async updateProfile(payload: UpdateProfilePayload): Promise<any> {
     const res = await api.put('/users/profile', payload);
-    invalidateCache(['/users/profile', '/auth/me']);
+    invalidateCache(['/users/profile', '/users/taste-profile', '/auth/me']);
     return res.data.data.user;
   },
 
