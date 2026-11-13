@@ -29,6 +29,7 @@ import {
   FileText,
   Skull,
   Compass,
+  Flame,
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser } from '../store/slices/authSlice';
