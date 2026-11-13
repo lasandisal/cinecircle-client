@@ -456,8 +456,8 @@ export const HomePage: React.FC = () => {
             {/* Active Circles Carousel (Live Watch Parties) */}
             <ActiveCirclesBar />
 
-            {/* Feed Stream Tabs */}
-            <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            {/* Feed Stream Tabs - sticky so you can switch tabs while scrolling */}
+            <div className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pb-3 pt-2 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar">
                 <button
                   onClick={() => setActiveTab('for-you')}

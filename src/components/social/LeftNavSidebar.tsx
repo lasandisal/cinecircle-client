@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Users,
-  Sparkles,
-  TrendingUp,
   Tv,
   ShieldCheck,
 } from 'lucide-react';
@@ -197,49 +194,6 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
         </>
       )}
 
-      {/* Feed Filters - members only. Guests have a single discovery view. */}
-      {isAuthenticated && (
-        <nav className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-2.5 space-y-1 backdrop-blur-sm">
-          <span className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-            Feed Discovery
-          </span>
-          <button
-            onClick={() => setActiveTab('for-you')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'for-you'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>For You</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('connections')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'connections'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Connections Activity</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('trending')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'trending'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Trending Shortlists</span>
-          </button>
-        </nav>
-      )}
     </aside>
   );
 };
