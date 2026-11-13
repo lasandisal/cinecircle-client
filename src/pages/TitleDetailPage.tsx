@@ -35,6 +35,7 @@ import { titleService } from '../services/title.service';
 import { watchlistService } from '../services/watchlist.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
 import { StreamingBadge } from '../components/common/StreamingBadge';
+import { ExternalRatings } from '../components/common/ExternalRatings';
 import { useToast } from '../hooks/useToast';
 import { useAppSelector } from '../hooks/useAppRedux';
 
@@ -837,12 +838,13 @@ export const TitleDetailPage: React.FC = () => {
                     {title.runtimeMinutes} min
                   </span>
                 )}
-                {title.voteAverage ? (
-                  <span className="flex items-center gap-1.5 text-amber-400 font-bold" title="Rating provided by TMDB">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" />
-                    TMDB {title.voteAverage} / 10
-                  </span>
-                ) : null}
+                
+                {/* IMDb & Rotten Tomatoes badges */}
+                <ExternalRatings 
+                  imdbRating={title.imdbRating} 
+                  rottenTomatoesRating={title.rottenTomatoesRating} 
+                  size="md" 
+                />
               </div>
             </div>
 

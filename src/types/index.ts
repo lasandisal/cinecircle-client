@@ -204,6 +204,10 @@ export interface TitleComment {
 export interface Title {
   _id: string;
   tmdbId: number;
+  imdbId?: string;
+  imdbRating?: number | null;
+  imdbVotes?: number | null;
+  rottenTomatoesRating?: number | null;
   name: string;
   originalName?: string;
   type: 'tv' | 'film';
