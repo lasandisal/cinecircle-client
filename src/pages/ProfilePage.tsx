@@ -160,7 +160,7 @@ export const ProfilePage: React.FC = () => {
       setEditServices(data.subscribedServices || []);
       setEditFavoriteGenres(data.tasteProfile?.favoriteGenres || []);
       setEditExclusions(data.tasteProfile?.exclusions || []);
-      setEditFavoriteTitles(data.tasteProfile?.favoriteTitleIds || []);
+      setEditFavoriteTitles(data.tasteProfile?.favoriteTitles || []);
       setHasTasteProfile(!!data.tasteProfile);
     } catch (err: any) {
       console.error('Failed to load profile:', err);

@@ -289,10 +289,8 @@ export const HomePage: React.FC = () => {
   const loadData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [feedPosts, activeSessionsData] = await Promise.all([
-        socialService.getFeed(1, 15, feedFilter),
-        socialService.getActiveSessions(),
-      ]);
+      // ActiveCirclesBar loads its own sessions; the feed only needs posts here.
+      const feedPosts = await socialService.getFeed(1, 15, feedFilter);
       setPosts(feedPosts);
     } catch (err) {
       console.error('Failed to load live feed data:', err);

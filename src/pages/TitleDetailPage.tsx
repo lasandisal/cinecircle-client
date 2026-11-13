@@ -103,8 +103,8 @@ export const TitleDetailPage: React.FC = () => {
   const toggleWatchedTitle = async () => {
     if (!requireAuth()) return;
     if (!title?._id) return;
+    const nextWatched = !isWatched;
     try {
-      const nextWatched = !isWatched;
       setIsWatched(nextWatched);
 
       // Ensure the title exists in the watchlist first (upsert is a no-op if already saved),

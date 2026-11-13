@@ -190,7 +190,7 @@ export const Navbar: React.FC = () => {
   const handleSelectTitle = (title: Title) => {
     addRecentSearch({
       type: 'title',
-      id: title._id || title.tmdbId,
+      id: String(title._id || title.tmdbId),
       name: title.name,
       posterOrAvatar: title.posterUrl || '',
       year: title.releaseYear,
