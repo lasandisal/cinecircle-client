@@ -71,6 +71,7 @@ export const ProfilePage: React.FC = () => {
   const [editFavoriteGenres, setEditFavoriteGenres] = useState<string[]>([]);
   const [editExclusions, setEditExclusions] = useState<string[]>([]);
   const [editFavoriteTitles, setEditFavoriteTitles] = useState<string[]>([]);
+  const [favTitleFilter, setFavTitleFilter] = useState('');
   const [hasTasteProfile, setHasTasteProfile] = useState<boolean | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -308,6 +309,30 @@ export const ProfilePage: React.FC = () => {
 
   // Available streaming services options
   const availableServices = ['Netflix', 'Max', 'Prime Video', 'Apple TV+', 'Disney+', 'Hulu', 'Paramount+'];
+
+  // Titles the user can add as favorites: their watched + saved watchlist titles,
+  // minus ones already favorited, filtered by the search input.
+  const addableFavoriteTitles = useMemo(() => {
+    const watched = (profile?.recentWatched || [])
+      .map((w) => w.title)
+      .filter(Boolean);
+    const saved = (profile?.savedWatchlist || [])
+      .map((w) => w.title)
+      .filter(Boolean);
+    const all = [...watched, ...saved];
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const t of all) {
+      if (t && !seen.has(t._id)) {
+        seen.add(t._id);
+        unique.push(t);
+      }
+    }
+    const q = favTitleFilter.toLowerCase().trim();
+    return unique
+      .filter((t) => !editFavoriteTitles.includes(t._id))
+      .filter((t) => !q || t.name.toLowerCase().includes(q));
+  }, [profile, favTitleFilter, editFavoriteTitles]);
 
   // Taste matrix genre options (same as onboarding wizard)
   const availableGenres = [
@@ -1422,43 +1447,89 @@ export const ProfilePage: React.FC = () => {
                   <label className="text-xs font-bold text-slate-300 block">Favorite Titles</label>
                   <span className="text-[10px] text-slate-500">{editFavoriteTitles.length} selected</span>
                 </div>
-                <div className="space-y-1.5">
-                  {editFavoriteTitles.map((titleId) => {
-                    const title = profile?.recentWatched?.find((w) => w.title?._id === titleId)?.title ||
-                      profile?.savedWatchlist?.find((w) => w.title?._id === titleId)?.title;
-                    return (
-                      <div key={titleId} className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
-                        <span className="text-slate-400 truncate flex-1">{title?.name || titleId}</span>
-                        <button
-                          type="button"
-                          onClick={() => toggleFavoriteTitle(titleId)}
-                          className="p-1 text-slate-500 hover:text-rose-400"
-                          title="Remove"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                  <input
-                    type="text"
-                    placeholder="Add a favorite title ID (from your watchlist)..."
-                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const input = e.currentTarget as HTMLInputElement;
-                        const id = input.value.trim();
-                        if (id && !editFavoriteTitles.includes(id)) {
-                          setEditFavoriteTitles([...editFavoriteTitles, id]);
-                          input.value = '';
-                        }
-                      }
-                    }}
-                  />
-                  <p className="text-[10px] text-slate-500 italic">
-                    Tip: add title IDs from titles you've watched or saved.
-                  </p>
+                <div className="space-y-2">
+                  {/* Existing favorites (removable chips) */}
+                  {editFavoriteTitles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {editFavoriteTitles.map((titleId) => {
+                        const title =
+                          profile?.recentWatched?.find((w) => w.title?._id === titleId)?.title ||
+                          profile?.savedWatchlist?.find((w) => w.title?._id === titleId)?.title;
+                        return (
+                          <div
+                            key={titleId}
+                            className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs"
+                          >
+                            <span className="text-slate-400 truncate flex-1">
+                              {title?.name || titleId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleFavoriteTitle(titleId)}
+                              className="p-1 text-slate-500 hover:text-rose-400"
+                              title="Remove"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Add from your watched / saved titles */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Add from your titles
+                    </label>
+                    <input
+                      type="text"
+                      value={favTitleFilter}
+                      onChange={(e) => setFavTitleFilter(e.target.value)}
+                      placeholder="Search your watched / saved titles..."
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    />
+                    <div className="max-h-32 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/50">
+                      {addableFavoriteTitles.length === 0 && favTitleFilter.trim() ? (
+                        <div className="p-2 text-center text-[10px] text-slate-500">
+                          No matching titles
+                        </div>
+                      ) : addableFavoriteTitles.length === 0 && !favTitleFilter.trim() ? (
+                        <div className="p-2 text-center text-[10px] text-slate-500">
+                          No watched or saved titles yet
+                        </div>
+                      ) : (
+                        addableFavoriteTitles.map((t) => (
+                          <button
+                            key={t._id}
+                            type="button"
+                            onClick={() => toggleFavoriteTitle(t._id)}
+                            className="w-full flex items-center gap-2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-800 rounded-xl text-left text-xs transition-colors"
+                          >
+                            {t.posterUrl ? (
+                              <img
+                                src={t.posterUrl}
+                                alt={t.name}
+                                className="w-5 h-6 rounded object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-6 rounded bg-slate-800 flex items-center justify-center shrink-0">
+                                <span className="text-[9px]">{t.name.charAt(0).toUpperCase()}</span>
+                              </div>
+                            )}
+                            <span className="text-slate-300 truncate flex-1">
+                              {t.name}
+                            </span>
+                            {t.releaseYear && (
+                              <span className="text-[9px] text-slate-500">
+                                ({t.releaseYear})
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
