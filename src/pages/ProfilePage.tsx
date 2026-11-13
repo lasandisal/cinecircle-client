@@ -38,6 +38,7 @@ import { updateUser, logout } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
 import { uploadProfileImage } from '../services/supabase';
 import { StreamingBadge } from '../components/common/StreamingBadge';
+import { useToast } from '../hooks/useToast';
 import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
 import type { UserProfileData, CommunityPerson, ConnectionGraph, ConnectionPerson } from '../types';
 
@@ -46,6 +47,7 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
+  const toast = useToast();
 
   // States
   const [profile, setProfile] = useState<UserProfileData | null>(null);
@@ -204,12 +206,15 @@ export const ProfilePage: React.FC = () => {
       if (profile.connectionStatus === 'pending_received' && profile.connectionRequestId) {
         await userService.respondToConnection(profile.connectionRequestId, 'accepted');
         setProfile((prev) => (prev ? { ...prev, connectionStatus: 'accepted' } : prev));
+        toast.success('Connection accepted.');
       } else {
         await userService.requestConnection(profile._id);
         setProfile((prev) => (prev ? { ...prev, connectionStatus: 'pending_sent' } : prev));
+        toast.success('Connection request sent.');
       }
     } catch (err) {
       console.error('Failed to send connection request:', err);
+      toast.error('Could not send the connection request. Please try again.');
     } finally {
       setConnectionLoading(false);
     }
@@ -241,6 +246,7 @@ export const ProfilePage: React.FC = () => {
     } catch (err) {
       console.error('Failed to upload profile image:', err);
       setAvatarUploadError('Image upload failed. Please try again.');
+      toast.error('Image upload failed. Please try again.');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -293,9 +299,10 @@ export const ProfilePage: React.FC = () => {
       });
 
       setIsEditModalOpen(false);
+      toast.success('Profile updated.');
     } catch (err: any) {
       console.error('Error saving profile:', err);
-      alert(err.response?.data?.error || 'Failed to update profile');
+      toast.error(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setIsSavingProfile(false);
     }
@@ -306,6 +313,7 @@ export const ProfilePage: React.FC = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+    toast.success('Profile link copied.');
   };
 
   // Sign out lives here too: on mobile the navbar avatar menu is hidden in

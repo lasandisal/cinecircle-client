@@ -5,6 +5,7 @@ import { store } from './store';
 import { AppRoutes } from './routes/AppRoutes';
 import { useAppDispatch } from './hooks/useAppRedux';
 import { fetchCurrentUser } from './store/slices/authSlice';
+import { ToastProvider } from './components/common/ToastProvider';
 
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
@@ -24,7 +25,9 @@ export const App: React.FC = () => {
     <Provider store={store}>
       <BrowserRouter>
         <AuthInitializer>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </AuthInitializer>
       </BrowserRouter>
     </Provider>

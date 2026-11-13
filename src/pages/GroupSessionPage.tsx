@@ -26,6 +26,7 @@ import { socketService } from '../services/socket';
 import { titleService } from '../services/title.service';
 import { userService } from '../services/user.service';
 import { socialService, type ActiveCircleItem } from '../services/social.service';
+import { useToast } from '../hooks/useToast';
 import type { CommunityPerson, ConnectionPerson, Title } from '../types';
 
 export const GroupSessionPage: React.FC = () => {
@@ -34,6 +35,7 @@ export const GroupSessionPage: React.FC = () => {
 
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [activeSession, setActiveSession] = useState<GroupSessionDetail | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState(initialCode);
@@ -338,8 +340,11 @@ export const GroupSessionPage: React.FC = () => {
       });
       setActiveSession(session);
       setSearchParams({ code: joinCode });
+      toast.success(`Circle "${session.name}" created. Room code: ${joinCode}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create room.');
+      const message = err.response?.data?.error || 'Failed to create room.';
+      setError(message);
+      toast.error(message);
     } finally {
       setCreating(false);
     }
@@ -370,8 +375,11 @@ export const GroupSessionPage: React.FC = () => {
       setSelectedParticipantIds([]);
       setMemberSearch('');
       setError(null);
+      toast.success('Invitations sent.');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send invitations.');
+      const message = err.response?.data?.error || 'Failed to send invitations.';
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -384,8 +392,12 @@ export const GroupSessionPage: React.FC = () => {
       await sessionService.deleteSession(activeSession._id);
       setActiveSession(null);
       setSearchParams({});
+      toast.success('Circle deleted. Back to your feed.');
+      navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to delete the circle.');
+      const message = err.response?.data?.error || 'Failed to delete the circle.';
+      setError(message);
+      toast.error(message);
     } finally {
       setDeletingSession(false);
     }
@@ -411,8 +423,11 @@ export const GroupSessionPage: React.FC = () => {
       setAiPitchGenerated(false);
       setCompromiseScores([]);
       setError(null);
+      toast.success('New voting round started.');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to start a new round.');
+      const message = err.response?.data?.error || 'Failed to start a new round.';
+      setError(message);
+      toast.error(message);
     } finally {
       setReopeningSession(false);
     }

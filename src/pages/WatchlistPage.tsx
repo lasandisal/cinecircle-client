@@ -3,10 +3,12 @@ import { Bookmark, Star, Check, Trash2, Clock, Film, Tv, Loader2, ArrowRight } f
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../store';
 import { watchlistService, type WatchlistItem, type WatchlistCounts } from '../services/watchlist.service';
+import { useToast } from '../hooks/useToast';
 
 export const WatchlistPage: React.FC = () => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'want_to_watch' | 'watched'>('all');
@@ -70,8 +72,10 @@ export const WatchlistPage: React.FC = () => {
       setItems((prev) =>
         prev.map((i) => (i._id === item._id ? { ...i, watched: updated.watched, watchedAt: updated.watchedAt } : i))
       );
+      toast.success(updated.watched ? 'Marked as watched.' : 'Moved back to want to watch.');
     } catch (err) {
       console.error('Failed to toggle watched:', err);
+      toast.error('Could not update this title. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -86,8 +90,10 @@ export const WatchlistPage: React.FC = () => {
       setItems((prev) =>
         prev.map((i) => (i._id === item._id ? { ...i, starRating: updated.starRating, watched: true } : i))
       );
+      toast.success(`Rated ${rating}/5.`);
     } catch (err) {
       console.error('Failed to rate title:', err);
+      toast.error('Could not save your rating. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -103,8 +109,10 @@ export const WatchlistPage: React.FC = () => {
         const wantToWatch = Math.max(0, c.wantToWatch - (item.watched ? 0 : 1));
         return { watched, wantToWatch, total: watched + wantToWatch };
       });
+      toast.success('Removed from your watchlist.');
     } catch (err) {
       console.error('Failed to remove item:', err);
+      toast.error('Could not remove this title. Please try again.');
     } finally {
       setActionLoading(null);
     }

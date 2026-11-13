@@ -35,6 +35,7 @@ import { titleService } from '../services/title.service';
 import { watchlistService } from '../services/watchlist.service';
 import type { Title, TitleComment, ReactionEmoji } from '../types';
 import { StreamingBadge } from '../components/common/StreamingBadge';
+import { useToast } from '../hooks/useToast';
 import { useAppSelector } from '../hooks/useAppRedux';
 
 // Available Facebook/Social Emoji Reactions
@@ -54,6 +55,7 @@ export const TitleDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user: currentUser } = useAppSelector((state) => state.auth);
+  const toast = useToast();
 
   const [title, setTitle] = useState<Title | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,8 +189,10 @@ export const TitleDetailPage: React.FC = () => {
           }
         });
       }
+      toast.success(`Rated ${star}/5.`);
     } catch (err) {
       console.error('Failed to rate title:', err);
+      toast.error('Could not save your rating. Please try again.');
     }
   };
 
@@ -205,8 +209,10 @@ export const TitleDetailPage: React.FC = () => {
         await watchlistService.addToWatchlist(title._id);
         setIsInWatchlist(true);
       }
+      toast.success(isInWatchlist ? 'Removed from watchlist.' : 'Added to watchlist.');
     } catch (err) {
       console.error('Failed to update watchlist:', err);
+      toast.error('Could not update your watchlist. Please try again.');
     } finally {
       setWatchlistActionLoading(false);
     }
@@ -613,8 +619,10 @@ export const TitleDetailPage: React.FC = () => {
       setShowPollForm(false);
       setPollQuestion('');
       setPollOptions(['', '']);
+      toast.success(pollPayload ? 'Poll posted.' : 'Comment posted.');
     } catch (err: any) {
       console.error('Error posting comment:', err);
+      toast.error(err?.response?.data?.error || 'Could not post your comment. Please try again.');
     } finally {
       setSubmittingComment(false);
     }
@@ -649,8 +657,10 @@ export const TitleDetailPage: React.FC = () => {
       }
       setReplyingToId(null);
       setReplyText('');
+      toast.success('Reply posted.');
     } catch (err: any) {
       console.error('Error posting reply:', err);
+      toast.error(err?.response?.data?.error || 'Could not post your reply. Please try again.');
     } finally {
       setSubmittingReply(false);
     }
@@ -706,9 +716,10 @@ export const TitleDetailPage: React.FC = () => {
             .filter((c: any) => c._id !== commentId);
         return { ...prev, comments: removeFrom(prev.comments || []) };
       });
+      toast.success('Comment deleted.');
     } catch (err: any) {
       console.error('Failed to delete comment:', err);
-      alert(err?.response?.data?.error || 'Could not delete this comment. Please try again.');
+      toast.error(err?.response?.data?.error || 'Could not delete this comment. Please try again.');
     }
   };
 
