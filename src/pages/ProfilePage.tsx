@@ -31,9 +31,10 @@ import {
   Compass,
   Flame,
   Smile,
+  LogOut,
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
-import { updateUser } from '../store/slices/authSlice';
+import { updateUser, logout } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
 import { uploadProfileImage } from '../services/supabase';
 import { StreamingBadge } from '../components/common/StreamingBadge';
@@ -307,6 +308,13 @@ export const ProfilePage: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  // Sign out lives here too: on mobile the navbar avatar menu is hidden in
+  // favour of the BottomNav Profile tab, so this is the member's only exit.
+  const handleSignOut = () => {
+    dispatch(logout());
+    navigate('/login');
+  };
+
   // Available streaming services options
   const availableServices = ['Netflix', 'Max', 'Prime Video', 'Apple TV+', 'Disney+', 'Hulu', 'Paramount+'];
 
@@ -539,6 +547,15 @@ export const ProfilePage: React.FC = () => {
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Find More People</span>
+                    </button>
+                    {/* Mobile-only: the navbar avatar menu (which holds Sign Out)
+                        is hidden below md in favour of the BottomNav Profile tab. */}
+                    <button
+                      onClick={handleSignOut}
+                      className="md:hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 text-xs font-semibold border border-slate-700/70 hover:border-rose-500/40 transition-all active:scale-95"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
                     </button>
                   </>
                 ) : (

@@ -558,9 +558,11 @@ export const Navbar: React.FC = () => {
           {/* Notifications only make sense for signed-in members. */}
           {isAuthenticated && <NotificationsDropdown />}
 
-          {/* User Profile / Auth State */}
+          {/* User Profile / Auth State.
+              On mobile the BottomNav already has a Profile tab, so the avatar
+              menu is hidden there to avoid two profile entry points. */}
           {isAuthenticated ? (
-            <div className="relative" ref={dropdownRef}>
+            <div className="relative hidden md:block" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-900/80 border border-transparent hover:border-slate-800 transition-all cursor-pointer group"
