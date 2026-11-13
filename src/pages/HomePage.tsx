@@ -15,7 +15,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { ActiveCirclesBar } from '../components/social/ActiveCirclesBar';
-import { SoloDecisionWidget } from '../components/social/SoloDecisionWidget';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import type { FeedPostProps } from '../components/social/SocialFeedPost';
 import { GroupSessionCard } from '../components/social/GroupSessionCard';
@@ -465,9 +464,6 @@ export const HomePage: React.FC = () => {
           <>
             {/* Active Circles Carousel (Live Watch Parties) */}
             <ActiveCirclesBar />
-
-            {/* Solo Decision Context Prompt Widget */}
-            <SoloDecisionWidget />
 
             {/* Feed Stream Tabs */}
             <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">

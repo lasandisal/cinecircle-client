@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
 import {
-  Compass,
   Users,
-  Bookmark,
   Sparkles,
   TrendingUp,
   Tv,
@@ -243,34 +240,6 @@ export const LeftNavSidebar: React.FC<LeftNavSidebarProps> = ({ activeTab, setAc
           </button>
         </nav>
       )}
-
-      {/* Quick Links */}
-      <nav className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-2.5 space-y-1 backdrop-blur-sm">
-        <span className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-          Shortcuts
-        </span>
-        <NavLink
-          to="/recommend"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all"
-        >
-          <Compass className="w-4 h-4 text-violet-400" />
-          <span>Solo Decision Engine</span>
-        </NavLink>
-        <NavLink
-          to="/group"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all"
-        >
-          <Users className="w-4 h-4 text-indigo-400" />
-          <span>Group Decision Rooms</span>
-        </NavLink>
-        <NavLink
-          to="/watchlist"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all"
-        >
-          <Bookmark className="w-4 h-4 text-amber-400" />
-          <span>My Watchlist</span>
-        </NavLink>
-      </nav>
     </aside>
   );
 };
