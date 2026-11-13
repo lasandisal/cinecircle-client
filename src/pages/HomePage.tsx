@@ -17,7 +17,6 @@ import {
 import { ActiveCirclesBar } from '../components/social/ActiveCirclesBar';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import type { FeedPostProps } from '../components/social/SocialFeedPost';
-import { LeftNavSidebar } from '../components/social/LeftNavSidebar';
 import { RightSocialSidebar } from '../components/social/RightSocialSidebar';
 import { TitlePoster } from '../components/common/TitlePoster';
 import { socialService } from '../services/social.service';
@@ -397,9 +396,6 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="flex gap-8">
-      {/* Left Social Navigation & Profile Sidebar */}
-      <LeftNavSidebar activeTab={activeTab} setActiveTab={(tab: any) => setActiveTab(tab)} />
-
       {/* Center Social Feed Stream */}
       <div className="flex-1 min-w-0 space-y-6">
         {!isAuthenticated ? (
@@ -456,8 +452,10 @@ export const HomePage: React.FC = () => {
             {/* Active Circles Carousel (Live Watch Parties) */}
             <ActiveCirclesBar />
 
-            {/* Feed Stream Tabs - sticky so you can switch tabs while scrolling */}
-            <div className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pb-3 pt-2 flex items-center justify-between gap-3">
+            {/* Feed Stream Tabs - sticky so you can switch tabs while scrolling.
+                Offset by the navbar height (h-14 / sm:h-16) so the bar parks
+                just below it instead of sliding underneath it. */}
+            <div className="sticky top-14 sm:top-16 z-20 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pb-3 pt-2 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar">
                 <button
                   onClick={() => setActiveTab('for-you')}
