@@ -17,8 +17,6 @@ import {
 import { ActiveCirclesBar } from '../components/social/ActiveCirclesBar';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import type { FeedPostProps } from '../components/social/SocialFeedPost';
-import { GroupSessionCard } from '../components/social/GroupSessionCard';
-import type { GroupPollProps } from '../components/social/GroupSessionCard';
 import { LeftNavSidebar } from '../components/social/LeftNavSidebar';
 import { RightSocialSidebar } from '../components/social/RightSocialSidebar';
 import { TitlePoster } from '../components/common/TitlePoster';
@@ -278,7 +276,6 @@ export const HomePage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<FeedTab>('for-you');
   const [posts, setPosts] = useState<FeedPostProps[]>([]);
-  const [featuredPoll, setFeaturedPoll] = useState<GroupPollProps | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -298,9 +295,6 @@ export const HomePage: React.FC = () => {
         socialService.getActiveSessions(),
       ]);
       setPosts(feedPosts);
-      if (activeSessionsData.featuredPoll) {
-        setFeaturedPoll(activeSessionsData.featuredPoll);
-      }
     } catch (err) {
       console.error('Failed to load live feed data:', err);
     } finally {
@@ -360,9 +354,6 @@ export const HomePage: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Live Group Session Poll Card - members only on the guest landing. */}
-          {featuredPoll && isAuthenticated && <GroupSessionCard session={featuredPoll} />}
-
           {/* User Review Activity Cards */}
           {posts.length > 0 ? (
             <div
