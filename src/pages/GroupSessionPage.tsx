@@ -139,6 +139,9 @@ export const GroupSessionPage: React.FC = () => {
     { titleId: string; score: number; yesCount: number; noCount: number }[]
   >([]);
   const joinedRoomIdRef = useRef<string | null>(null);
+  // Set while the host deletes this room, so the broadcast they receive for
+  // their own action doesn't double-handle (toast + redirect twice).
+  const selfDeletingRef = useRef(false);
 
   // Load / join session on mount or code change
   useEffect(() => {
@@ -213,6 +216,16 @@ export const GroupSessionPage: React.FC = () => {
         if (!payload?.error) return;
         setError(payload.error);
         setTimeout(() => setError(null), 5000);
+      });
+
+      // The host deleted the room while we were inside it.
+      socketService.onSessionDeleted((payload) => {
+        if (payload?.sessionId !== roomSessionId) return;
+        if (selfDeletingRef.current) return;
+        setActiveSession(null);
+        setSearchParams({});
+        toast.info('This circle was deleted by its host.');
+        navigate('/');
       });
     };
 
@@ -389,12 +402,14 @@ export const GroupSessionPage: React.FC = () => {
 
     try {
       setDeletingSession(true);
+      selfDeletingRef.current = true;
       await sessionService.deleteSession(activeSession._id);
       setActiveSession(null);
       setSearchParams({});
       toast.success('Circle deleted. Back to your feed.');
       navigate('/');
     } catch (err: any) {
+      selfDeletingRef.current = false;
       const message = err.response?.data?.error || 'Failed to delete the circle.';
       setError(message);
       toast.error(message);

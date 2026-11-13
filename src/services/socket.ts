@@ -180,6 +180,10 @@ class SocketService {
     this.socket?.on('session:error', handler);
   }
 
+  onSessionDeleted(handler: (payload: { sessionId: string }) => void): void {
+    this.socket?.on('session:deleted', handler);
+  }
+
   onPresenceOnline(handler: (payload: PresencePayload) => void): void {
     this.socket?.on('presence:online', handler);
   }
