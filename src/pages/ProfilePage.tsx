@@ -30,6 +30,7 @@ import {
   Skull,
   Compass,
   Flame,
+  Smile,
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser } from '../store/slices/authSlice';
