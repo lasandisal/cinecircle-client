@@ -1,6 +1,6 @@
 # CineCircle Web Client (`cinecircle-fe`)
 
-> Fast, responsive, cinematic single-page application for **CineCircle** — A Social Watch-Decision & Film Review Platform.
+> Fast, responsive, cinematic single-page application for **CineCircle** — A Social Watch-Decision & Review Platform.
 
 ---
 
@@ -13,6 +13,7 @@
 - **Cinematic Atmosphere**: Ambient glow effects, full-screen collage backgrounds, and high-resolution TMDB backdrops and posters.
 - **Adaptive Layout**: Mobile floating bottom dock with quick actions; collapsible desktop sidebar navigation for high productivity.
 - **Low Latency & Real-Time Sync**: Instant UI updates powered by Redux Toolkit and duplex WebSockets via Socket.IO for watch room voting.
+- **Instagram-Style Social Feed**: Community reviews with embedded polls, like/unlike toggling, who-liked-who visibility, reply threads, and member profiles.
 
 ```mermaid
 flowchart LR
@@ -80,8 +81,26 @@ flowchart LR
 - **Season & Episode Guide**: Episode-by-episode summaries, still images, and air dates.
 - **Curated Soundtracks**: List of key musical tracks with artist details and Spotify/preview playback links.
 - **Community Discussion**: Threaded user reviews, star ratings, emoji reactions, and toggleable spoiler shields.
+- **Embedded Polls**: Community polls attached to reviews with vote tracking — users see which option they voted for ("Your vote"), and each user can vote once per poll.
 
-### 2.7 Watchlist & Member Profile (`/watchlist`, `/profile`)
+### 2.7 Social Feed (`/`)
+- **Community Review Feed**: Real reviews from community members displayed in Instagram-style cards.
+- **Like Toggle**: Heart button to like/unlike comments; heart turns red when liked, persists on refresh.
+- **Who Liked**: Click the like count to see which members liked a comment.
+- **Who Replied**: Click the comment count to see replies to a comment.
+- **Poll Voting**: Vote on community polls directly from feed cards with visual confirmation of your vote.
+
+### 2.8 Member Search & Profiles
+- **Search Bar**: Search members by name, email, or handle from the Navbar.
+- **Member Search Results**: Displayed with avatar, handle, watched count, follow status, and compatibility score.
+- **Member Profiles**: Instagram-style profile page showing:
+  - Avatar, name, handle, bio, and subscribed streaming passes.
+  - Watched count, connection count, reviews count, circles count.
+  - Watched titles grid, watchlist grid, recent reviews, active circles.
+  - Taste compatibility matrix between viewer and profile owner.
+  - Follow/Connect buttons and mutual-watched title indicators.
+
+### 2.9 Watchlist & Member Profile (`/watchlist`, `/profile`)
 - **Organized Watchlist**: Toggle between *To Watch* and *Watched* tabs with sorting.
 - **Star Rating Modal**: Instant 1–10 star rating assignment with optional public review.
 - **Taste Compatibility %**: Profile shows calculated match percentage and shared titles between any two members.
@@ -119,17 +138,24 @@ cinecircle-fe/
 │   ├── assets/                  # SVG icons and static graphics
 │   ├── components/
 │   │   ├── common/              # Navbar, Footer, BottomNav, TitlePoster, StreamingBadge
+│   │   │   ├── Navbar.tsx               # Search bar with title + member search, user menu
+│   │   │   └── social/
+│   │   │       ├── SocialFeedPost.tsx         # Feed cards with polls, likes, likers, replies
+│   │   │       ├── GroupSessionCard.tsx
+│   │   │       ├── StreamingBadge.tsx
+│   │   │       ├── NotificationsDropdown.tsx
+│   │   │       └── ...
 │   │   ├── layout/              # MainLayout with responsive sidebars & docks
 │   │   ├── onboarding/          # CineTaste Matrix wizard components
 │   │   └── social/              # Feed post cards, group session cards, sidebars
 │   ├── hooks/                   # Custom typed hooks (`useAppDispatch`, `useAppSelector`)
 │   ├── pages/                   # Application views
-│   │   ├── HomePage.tsx               # Feed, hero, and trending rails
+│   │   ├── HomePage.tsx               # Feed, hero, trending rails & social feed
 │   │   ├── LoginPage.tsx              # Full-screen Netflix-style login (Password + OTP)
 │   │   ├── RegisterPage.tsx           # Full-screen 2-step registration (Info + OTP)
 │   │   ├── SoloRecommendationPage.tsx # Contextual decision engine
 │   │   ├── GroupSessionPage.tsx       # Live watch party & voting room
-│   │   ├── TitleDetailPage.tsx        # Enthusiast hub, soundtracks, discussions
+│   │   ├── TitleDetailPage.tsx        # Enthusiast hub, soundtracks, discussions & polls
 │   │   ├── WatchlistPage.tsx          # Saved titles and rating manager
 │   │   ├── ProfilePage.tsx            # Member profile, mutuals & compatibility
 │   │   ├── OnboardingPage.tsx         # Taste calibration wizard
@@ -140,7 +166,8 @@ cinecircle-fe/
 │   │   ├── api.ts
 │   │   ├── auth.service.ts
 │   │   ├── session.service.ts
-│   │   ├── title.service.ts
+│   │   ├── title.service.ts       # toggleLike, getCommentLikers, voteCommentPoll
+│   │   ├── user.service.ts        # searchPeople, getProfile, toggleFollow
 │   │   └── socket.ts
 │   ├── store/                   # Redux Toolkit store & feature slices
 │   │   ├── slices/
@@ -164,6 +191,7 @@ cinecircle-fe/
 ## 5. Environment Variables & Setup
 
 ### 5.1 Environment Configuration
+
 Create a `.env` file in the `cinecircle-fe` directory:
 
 ```env
@@ -211,13 +239,32 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_publishable_key
 
 | Path | Access Level | Description |
 | :--- | :--- | :--- |
-| `/` | Public | Discovery landing, trending carousels & recent reviews |
+| `/` | Public | Discovery landing, trending carousels & social feed with reviews & polls |
 | `/login` | Guest Only | Cinematic login (Password / Email OTP) |
 | `/register` | Guest Only | 2-step registration with email verification |
 | `/onboarding` | Protected | CineTaste Matrix taste calibration wizard |
 | `/recommend` | Public / Member | Solo Decision Engine for time & mood shortlist |
 | `/group` | Public / Member | Live watch room creation, join code, & consensus voting |
-| `/title/:id` | Public | Movie/show metadata, soundtracks, episodes & discussion |
+| `/title/:id` | Public | Movie/show metadata, soundtracks, episodes & discussion with polls |
 | `/watchlist` | Protected | Personal watchlist, star ratings & watched history |
 | `/profile/:id` | Public / Member | Member profile, compatibility % & mutual titles |
 | `/curator` | Admin Only | Protected title catalogue sync & comment moderation |
+
+---
+
+## 7. Frontend-Backend API Integration
+
+| Feature | Frontend Service | Backend Endpoint | Redux State |
+| :--- | :--- | :--- | :--- |
+| Auth | `auth.service.ts` | `POST /api/auth/*` | `authSlice` |
+| Feed (with polls & likes) | `title.service.ts` | `GET /api/titles/feed` | `recommendationSlice` |
+| Like toggle | `title.service.ts` | `POST /api/comments/:id/like` | Local component state |
+| Likers list | `title.service.ts` | `GET /api/comments/:id/likers` | Local component state |
+| Comment replies | `title.service.ts` | `GET /api/comments/:id/replies` | Local component state |
+| Poll vote | `title.service.ts` | `POST /api/comments/:id/poll/vote` | Local component state |
+| Member search | `user.service.ts` | `GET /api/users/search?q=` | Local component state |
+| User profile | `user.service.ts` | `GET /api/users/:id/profile` | Local component state |
+| Follow toggle | `user.service.ts` | `POST /api/users/:id/follow` | Local component state |
+| Watchlist | `title.service.ts` | `GET/POST /api/watchlist` | `watchlistSlice` |
+| Sessions | `session.service.ts` | `POST/GET /api/sessions/*` | `sessionSlice` |
+| Socket events | `socket.ts` | WebSocket `/api/sessions/*` | `sessionSlice` |
