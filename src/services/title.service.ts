@@ -113,12 +113,20 @@ export const titleService = {
   },
 
   /**
-   * Like a discussion comment
+   * Toggle like on a discussion comment (like/unlike)
    */
-  async likeComment(commentId: string) {
+  async toggleLike(commentId: string) {
     const res = await api.post(`/titles/comments/${commentId}/like`);
     invalidateCache(['/titles/']);
-    return res.data.data.comment;
+    return res.data.data; // { commentId, isLiked, likesCount }
+  },
+
+  /**
+   * Get users who liked a comment
+   */
+  async getCommentLikers(commentId: string, page = 1, limit = 20) {
+    const res = await api.get(`/titles/comments/${commentId}/likers`, { params: { page, limit } });
+    return res.data.data; // { likers, total, page, limit, hasMore }
   },
 
   /**

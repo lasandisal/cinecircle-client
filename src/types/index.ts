@@ -189,6 +189,8 @@ export interface TitleComment {
   text: string;
   rating?: number;
   likesCount?: number;
+  /** Whether the currently signed-in viewer has liked this comment. */
+  likedByMe?: boolean;
   parentId?: string | null;
   reactions?: CommentReaction[];
   poll?: CommentPoll;

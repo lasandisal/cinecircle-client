@@ -68,6 +68,7 @@ export const TitleDetailPage: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(142);
   const [userRating, setUserRating] = useState<number>(0);
+  const [myVotedOptionIdx, setMyVotedOptionIdx] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [watchlistActionLoading, setWatchlistActionLoading] = useState(false);
 
@@ -88,6 +89,23 @@ export const TitleDetailPage: React.FC = () => {
     };
     fetchWatchlistStatus();
   }, [isAuthenticated, title?._id]);
+
+  // Track which poll option the current user voted for (persists across refresh)
+  const [myVotesMap, setMyVotesMap] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (!currentUser?._id || !title?.comments) return;
+    const votesMap = new Map<string, number>();
+    title.comments.forEach((comment: TitleComment) => {
+      if (comment.poll?.options) {
+        const idx = comment.poll.options.findIndex((opt: any) =>
+          opt.votes.includes(currentUser._id)
+        );
+        if (idx >= 0) votesMap.set(comment._id, idx);
+      }
+    });
+    setMyVotesMap(votesMap);
+  }, [currentUser?._id, title?.comments]);
 
   const requireAuth = (): boolean => {
     if (!isAuthenticated) {
@@ -685,18 +703,79 @@ export const TitleDetailPage: React.FC = () => {
   };
 
   const handlePollVote = async (commentId: string, optionIndex: number) => {
-    if (!isAuthenticated) return;
+    if (!requireAuth()) return;
 
     try {
-      const updated = await titleService.voteCommentPoll(commentId, optionIndex);
-      if (title && title.comments) {
+      // titleService.voteCommentPoll returns the full updated comment object directly
+      const updatedComment = await titleService.voteCommentPoll(commentId, optionIndex);
+      const updatedPoll = updatedComment?.poll;
+      if (title && title.comments && updatedPoll) {
         setTitle({
           ...title,
-          comments: title.comments.map((c) => (c._id === commentId ? { ...c, poll: updated.poll } : c)),
+          comments: title.comments.map((c) => (c._id === commentId ? { ...c, poll: updatedPoll } : c)),
         });
       }
     } catch (err) {
       console.error('Failed to vote on poll:', err);
+      toast.error('Could not submit your vote. Please try again.');
+    }
+  };
+
+  const handleLikeComment = async (commentId: string, currentlyLiked: boolean) => {
+    if (!requireAuth()) return;
+
+    // Optimistic update
+    setTitle((prev) => {
+      if (!prev) return prev;
+      const updateComment = (arr: TitleComment[]): TitleComment[] =>
+        arr.map((c) => {
+          if (c._id === commentId) {
+            return {
+              ...c,
+              likedByMe: !currentlyLiked,
+              likesCount: (c.likesCount || 0) + (currentlyLiked ? -1 : 1),
+            };
+          }
+          if (c.replies) return { ...c, replies: updateComment(c.replies) };
+          return c;
+        });
+      return { ...prev, comments: updateComment(prev.comments || []) };
+    });
+
+    try {
+      const result = await titleService.toggleLike(commentId);
+      // Sync exact count from backend
+      setTitle((prev) => {
+        if (!prev) return prev;
+        const syncComment = (arr: TitleComment[]): TitleComment[] =>
+          arr.map((c) => {
+            if (c._id === commentId) {
+              return { ...c, likedByMe: result.isLiked, likesCount: result.likesCount };
+            }
+            if (c.replies) return { ...c, replies: syncComment(c.replies) };
+            return c;
+          });
+        return { ...prev, comments: syncComment(prev.comments || []) };
+      });
+    } catch (err: any) {
+      // Revert on failure
+      setTitle((prev) => {
+        if (!prev) return prev;
+        const revertComment = (arr: TitleComment[]): TitleComment[] =>
+          arr.map((c) => {
+            if (c._id === commentId) {
+              return {
+                ...c,
+                likedByMe: currentlyLiked,
+                likesCount: (c.likesCount || 0) + (currentlyLiked ? 1 : -1),
+              };
+            }
+            if (c.replies) return { ...c, replies: revertComment(c.replies) };
+            return c;
+          });
+        return { ...prev, comments: revertComment(prev.comments || []) };
+      });
+      console.error('Failed to toggle comment like:', err);
     }
   };
 
@@ -2143,31 +2222,37 @@ export const TitleDetailPage: React.FC = () => {
                             {comment.poll.options.map((opt, optIdx) => {
                               const voteCount = opt.votes.length;
                               const percent = totalPollVotes > 0 ? Math.round((voteCount / totalPollVotes) * 100) : 0;
-                              const hasVotedThis = currentUser?._id && opt.votes.includes(currentUser._id);
+                              const hasVotedThis = myVotesMap.get(comment._id) === optIdx;
 
                               return (
                                 <button
                                   key={optIdx}
                                   type="button"
-                                  disabled={!isAuthenticated}
+                                  disabled={!isAuthenticated || hasVotedThis}
                                   onClick={() => handlePollVote(comment._id, optIdx)}
-                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all ${
+                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
                                     hasVotedThis
-                                      ? 'border-indigo-500 bg-indigo-950/40'
-                                      : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'
+                                      ? 'border-indigo-500 bg-indigo-950/50'
+                                      : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
                                   }`}
                                 >
-                                  {/* Progress bar background fill */}
-                                  <div
-                                    className="absolute left-0 top-0 bottom-0 bg-indigo-600/20 transition-all duration-300"
-                                    style={{ width: `${percent}%` }}
-                                  />
+                                  {/* Progress bar */}
+                                  <div className="absolute left-0 top-0 bottom-0 transition-all duration-300 ${
+                                    hasVotedThis ? 'bg-indigo-600/30' : 'bg-slate-700/30'
+                                  }" style={{ width: `${percent}%` }} />
                                   <div className="relative z-10 flex items-center justify-between text-xs">
                                     <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                                      {hasVotedThis && <Check className="w-3 h-3 text-indigo-400" />}
+                                      {hasVotedThis && (
+                                        <>
+                                          <Check className="w-3 h-3 text-indigo-400" />
+                                          <span className="text-indigo-400 text-[10px] font-bold">Your vote</span>
+                                        </>
+                                      )}
                                       {opt.optionText}
                                     </span>
-                                    <span className="text-[11px] font-bold text-slate-400">
+                                    <span className="text-[11px] font-bold ${
+                                      hasVotedThis ? 'text-indigo-400' : 'text-slate-400'
+                                    }">
                                       {percent}% ({voteCount})
                                     </span>
                                   </div>
@@ -2206,6 +2291,21 @@ export const TitleDetailPage: React.FC = () => {
 
                         {/* Reaction Picker & Reply Buttons */}
                         <div className="relative flex items-center gap-3">
+                          {/* Like Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleLikeComment(comment._id, !!comment.likedByMe)}
+                            className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                              comment.likedByMe
+                                ? 'text-rose-400'
+                                : 'text-slate-400 hover:text-rose-400'
+                            }`}
+                            title={comment.likedByMe ? 'Unlike' : 'Like'}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${comment.likedByMe ? 'fill-rose-400' : ''}`} />
+                            <span>{comment.likesCount || 0}</span>
+                          </button>
+
                           {/* Facebook-style Reaction Popover */}
                           <div className="relative">
                             <button
