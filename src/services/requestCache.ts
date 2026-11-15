@@ -170,3 +170,30 @@ export const invalidateCache = (patterns: string[] = []): void => {
 export const refreshCache = (patterns: string[] = []): void => {
   invalidateCache(patterns);
 };
+
+/**
+ * Drop every cached response that belongs to the CURRENT auth scope.
+ *
+ * Critical for access control: the cache lives in sessionStorage, which
+ * survives a logout. Without this, the next person to sign in on the same
+ * browser would read the previous user's cached responses (e.g. their watch
+ * circles and their join codes) before the first network request lands.
+ */
+export const clearAuthScopedCache = (): void => {
+  const scope = getAuthScope();
+  const prefix = `${scope}:`;
+
+  for (const key of Array.from(memoryCache.keys())) {
+    if (key.startsWith(prefix)) memoryCache.delete(key);
+  }
+  for (const key of Object.keys(sessionStorage)) {
+    if (key.startsWith(STORAGE_PREFIX) && key.includes(prefix)) {
+      sessionStorage.removeItem(key);
+    }
+  }
+};
+
+/** Nuclear option - wipe every cached response (public + user scoped). */
+export const clearAllCache = (): void => {
+  invalidateCache([]);
+};

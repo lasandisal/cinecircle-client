@@ -36,6 +36,7 @@ import {
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser, logout } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
+import { clearAuthScopedCache } from '../services/requestCache';
 import { uploadProfileImage } from '../services/supabase';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useToast } from '../hooks/useToast';
@@ -320,6 +321,9 @@ export const ProfilePage: React.FC = () => {
   // favour of the BottomNav Profile tab, so this is the member's only exit.
   const handleSignOut = () => {
     dispatch(logout());
+    // Drop this member's cached responses so the next person to sign in on
+    // this browser cannot read their watch circles / join codes.
+    clearAuthScopedCache();
     navigate('/login');
   };
 

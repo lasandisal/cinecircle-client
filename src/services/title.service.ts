@@ -76,9 +76,13 @@ export const titleService = {
    * Get full title details by ID or TMDB ID
    */
   async getTitleDetails(idOrTmdbId: string | number, type?: 'film' | 'tv'): Promise<Title> {
+    // NOT persist:true - this payload contains user-specific data (isLiked,
+    // likedByMe on every comment). A "public" cache key is shared by every
+    // account on the browser, so it would leak one member's like state to
+    // the next one.
     const res = await cachedGet(`/titles/${idOrTmdbId}`, {
       params: type ? { type } : undefined,
-    }, { ttlMs: 10 * 60_000, persist: true });
+    }, { ttlMs: 10 * 60_000 });
     return res.data.data.title;
   },
 

@@ -20,6 +20,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux';
 import { logout } from '../../store/slices/authSlice';
 import { titleService } from '../../services/title.service';
 import { userService } from '../../services/user.service';
+import { clearAuthScopedCache } from '../../services/requestCache';
 import type { Title, CommunityPerson } from '../../types';
 import { StreamingBadge } from './StreamingBadge';
 
@@ -204,6 +205,9 @@ export const Navbar: React.FC = () => {
   const handleSignOut = () => {
     setProfileDropdownOpen(false);
     dispatch(logout());
+    // Drop this member's cached responses so the next person to sign in on
+    // this browser cannot read their watch circles / join codes.
+    clearAuthScopedCache();
     navigate('/login');
   };
 
