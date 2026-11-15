@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, Flame, Loader2 } from 'lucide-react';
+import { Plus, Users, Flame, Loader2, KeyRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { socialService, type ActiveCircleItem } from '../../services/social.service';
 import { useAppSelector } from '../../hooks/useAppRedux';
@@ -34,7 +34,7 @@ export const ActiveCirclesBar: React.FC = () => {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
           </span>
           <h2 className="text-[11px] sm:text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1">
-            <Flame className="w-3.5 h-3.5 text-amber-400" /> Active Watch Circles
+            <Flame className="w-3.5 h-3.5 text-amber-400" /> Your Watch Circles
           </h2>
         </div>
         <Link to="/group?view=all" className="text-[11px] sm:text-xs text-indigo-400 hover:text-indigo-300 font-semibold">
@@ -61,6 +61,11 @@ export const ActiveCirclesBar: React.FC = () => {
           <div className="flex items-center gap-2 px-3 text-xs text-slate-500">
             <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
             Loading circles...
+          </div>
+        ) : circles.length === 0 ? (
+          <div className="flex items-center gap-2 px-3 text-xs text-slate-500">
+            <KeyRound className="w-4 h-4 text-slate-600" />
+            No circles yet — join one with a room code
           </div>
         ) : circles.map((circle) => (
           <Link

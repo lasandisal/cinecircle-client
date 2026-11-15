@@ -1132,6 +1132,32 @@ export const GroupSessionPage: React.FC = () => {
                 </div>
               );
             })}
+
+            {/* Empty state - the shortlist starts empty on purpose */}
+            {(activeSession.shortlist || []).length === 0 && (
+              <div className="col-span-full p-10 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 flex flex-col items-center justify-center text-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+                  <Film className="w-6 h-6 text-indigo-400" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">The shortlist is empty</h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                    Add the movies and shows you want to vote on. Everyone in the room can
+                    suggest titles, then vote on the ones that matter.
+                  </p>
+                </div>
+                {activeSession.status === 'open' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Show / Movie</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1328,22 +1354,26 @@ export const GroupSessionPage: React.FC = () => {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white font-['Outfit']">All Circles</h1>
-              <p className="text-xs text-slate-400 mt-1">Open rooms and your completed watch decisions.</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-white font-['Outfit']">Your Circles</h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Rooms you created or were invited to. Join any other circle with its 6-character code.
+              </p>
             </div>
           </div>
 
           {loadingAllCircles ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
               <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
-              <h2 className="text-sm font-bold text-slate-200">Loading active circles...</h2>
-              <p className="text-xs text-slate-500 mt-1">Checking for available and completed rooms.</p>
+              <h2 className="text-sm font-bold text-slate-200">Loading your circles...</h2>
+              <p className="text-xs text-slate-500 mt-1">Checking your open and completed rooms.</p>
             </div>
           ) : allCircles.length === 0 ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-10 text-center">
               <Users className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-              <h2 className="text-sm font-bold text-slate-200">No active circles yet</h2>
-              <p className="text-xs text-slate-500 mt-1">Create the first watch circle and invite your connections.</p>
+              <h2 className="text-sm font-bold text-slate-200">You are not in any circles yet</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Create a circle and invite your connections, or enter a room code to join one.
+              </p>
               <button
                 type="button"
                 onClick={() => setSearchParams({})}
