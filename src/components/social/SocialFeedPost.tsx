@@ -172,6 +172,18 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
     setLikes(post.likesCount);
   }, [post.likedByMe, post.likesCount]);
 
+  // Error states for debugging
+  const [likeError, setLikeError] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
+  const [repliesError, setRepliesError] = useState<string | null>(null);
+
+  // Comment input state (reply to THIS post)
+  const [commentInputOpen, setCommentInputOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [localCommentCount, setLocalCommentCount] = useState(post.commentsCount);
+
   // Poll state
   const [pollVoting, setPollVoting] = useState(false);
   const [localPoll, setLocalPoll] = useState<{ question: string; options: { text: string; votesCount: number; userHasVoted: boolean }[] } | null>(post.poll ?? null);
@@ -189,6 +201,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [repliesLoading, setRepliesLoading] = useState(false);
 
   const toggleLike = async () => {
+    setLikeError(null);
     if (liked) {
       // Already liked -> unlike
       setLiked(false);
@@ -196,8 +209,9 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
       try {
         const result = await titleService.toggleLike(post.id);
         setLikes(result.likesCount);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to unlike comment:', err);
+        setLikeError(err?.response?.data?.error || err?.message || 'Failed to unlike');
         // Revert
         setLiked(true);
         setLikes(likes);
@@ -211,8 +225,9 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
     try {
       const result = await titleService.toggleLike(post.id);
       setLikes(result.likesCount);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to like comment:', err);
+      setLikeError(err?.response?.data?.error || err?.message || 'Failed to like');
       // Revert
       setLiked(false);
       setLikes(likes);
@@ -226,24 +241,46 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
       setLikers(data.likers || []);
       setLikersTotal(data.total || 0);
       setLikersModalOpen(true);
-    } catch (err) {
-      console.error('Failed to load likers:', err);
+    } catch (err: any) {
+      setLikeError(err?.response?.data?.error || err?.message || 'Failed to load likers');
     }
   };
 
   const handleCommentCountClick = async () => {
-    if (post.commentsCount === 0) return;
     setRepliesLoading(true);
     try {
-      // Fetch replies for this comment
-      const res = await fetch(`/api/titles/comments/${post.id}/replies?page=1&limit=20`);
-      const data = await res.json();
-      setReplies(data.data.replies || []);
+      // Fetch replies for this comment (via axios so the API base URL + auth are used)
+      const data = await titleService.getCommentReplies(post.id, 1, 20);
+      setReplies(data.replies || []);
       setRepliesModalOpen(true);
-    } catch (err) {
-      console.error('Failed to load replies:', err);
+    } catch (err: any) {
+      setRepliesError(err?.response?.data?.error || err?.message || 'Failed to load replies');
     } finally {
       setRepliesLoading(false);
+    }
+  };
+
+  const handleSubmitComment = async () => {
+    const text = commentText.trim();
+    if (!text || commentSubmitting) return;
+    setCommentSubmitting(true);
+    setCommentError(null);
+    try {
+      // parentId = the feed post's comment id -> becomes a REPLY to that post.
+      // titleId  = the title the post belongs to.
+      await titleService.addComment(post.titleData.id, text, undefined, false, post.id);
+      setCommentText('');
+      setCommentInputOpen(false);
+      setLocalCommentCount((c) => c + 1);
+      // Refresh the replies list if the modal is open
+      if (repliesModalOpen) {
+        const data = await titleService.getCommentReplies(post.id, 1, 20);
+        setReplies(data.replies || []);
+      }
+    } catch (err: any) {
+      setCommentError(err?.response?.data?.error || err?.message || 'Failed to post comment');
+    } finally {
+      setCommentSubmitting(false);
     }
   };
 
@@ -265,8 +302,8 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
           })),
         });
       }
-    } catch (err) {
-      console.error('Failed to vote on poll:', err);
+    } catch (err: any) {
+      setPollError(err?.response?.data?.error || err?.message || 'Failed to vote on poll');
     } finally {
       setPollVoting(false);
     }
@@ -406,40 +443,57 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
               </div>
             </div>
           )}
+
+          {pollError && (
+            <span className="text-[10px] text-rose-400 font-semibold mt-1 block">
+              {pollError}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Social Micro-Interaction Bar */}
       <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px] sm:text-xs text-slate-400">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleLike();
-          }}
-          className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
-            liked ? 'text-rose-500 font-semibold border border-rose-500/30' : 'hover:text-rose-400 hover:border-rose-500/20'
-          }`}
-          aria-label={liked ? 'Unlike' : 'Like'}
-        >
-          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${liked ? 'fill-rose-500' : ''}`} />
-          <span
+        <div className="flex items-center gap-1.5">
+          <button
             onClick={(e) => {
               e.stopPropagation();
-              handleLikeCountClick();
+              toggleLike();
             }}
+            className={`flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
+              liked ? 'text-rose-500 font-semibold border border-rose-500/30' : 'hover:text-rose-400 hover:border-rose-500/20'
+            }`}
+            aria-label={liked ? 'Unlike' : 'Like'}
+          >
+            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${liked ? 'fill-rose-500' : ''}`} />
+          </button>
+          <span
+            onClick={handleLikeCountClick}
             className="cursor-pointer hover:underline hover:text-rose-400 transition-colors"
           >
             {likes}
           </span>
-        </button>
+        </div>
+
+        {likeError && (
+          <span className="text-[10px] text-rose-400 font-semibold mt-1 block">
+            {likeError}
+          </span>
+        )}
 
         <button
-          onClick={handleCommentCountClick}
-          className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer hover:text-indigo-400`}
+          onClick={() => {
+            setCommentInputOpen((v) => !v);
+            setCommentError(null);
+          }}
+          className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
+            commentInputOpen ? 'text-indigo-400' : 'hover:text-indigo-400'
+          }`}
+          aria-label="Comment on this post"
         >
           <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="cursor-pointer hover:underline hover:text-indigo-400 transition-colors">
-            {post.commentsCount}
+            {localCommentCount}
           </span>
         </button>
 
@@ -462,6 +516,66 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
         </Link>
       </div>
 
+      {/* Comment input: reply to THIS post */}
+      {commentInputOpen && (
+        <div className="space-y-2 pt-1">
+          <div className="flex gap-2 items-start">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmitComment();
+                }
+              }}
+              placeholder={`Reply to ${post.author.name}...`}
+              rows={2}
+              maxLength={500}
+              className="flex-1 px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-slate-500">{commentText.length}/500</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCommentInputOpen(false);
+                  setCommentText('');
+                  setCommentError(null);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitComment}
+                disabled={!commentText.trim() || commentSubmitting}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-1.5"
+              >
+                {commentSubmitting ? 'Posting...' : 'Post Reply'}
+              </button>
+            </div>
+          </div>
+          {commentError && (
+            <span className="text-[10px] text-rose-400 font-semibold block">{commentError}</span>
+          )}
+        </div>
+      )}
+
+      {/* Link to open the replies list */}
+      {localCommentCount > 0 && (
+        <button
+          type="button"
+          onClick={handleCommentCountClick}
+          className="text-[11px] text-indigo-400 hover:underline text-left"
+        >
+          View {localCommentCount} {localCommentCount === 1 ? 'reply' : 'replies'}
+        </button>
+      )}
+
       {/* Likers Modal */}
       <LikersModal
         open={likersModalOpen}
@@ -476,6 +590,14 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
           <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-300 flex items-center gap-2">
             <Clock className="w-3 h-3 animate-spin" />
             Loading replies…
+          </div>
+        </div>
+      )}
+      {repliesError && !repliesLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-rose-400 flex items-center gap-2">
+            <span>⚠️</span>
+            {repliesError}
           </div>
         </div>
       )}

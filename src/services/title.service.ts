@@ -108,7 +108,7 @@ export const titleService = {
       parentId,
       poll,
     });
-    invalidateCache([`/titles/${titleId}/comments`]);
+    invalidateCache([`/titles/${titleId}`]);
     return res.data.data.comment;
   },
 
@@ -136,6 +136,14 @@ export const titleService = {
   async getCommentLikers(commentId: string, page = 1, limit = 20) {
     const res = await api.get(`/titles/comments/${commentId}/likers`, { params: { page, limit } });
     return res.data.data; // { likers, total, page, limit, hasMore }
+  },
+
+  /**
+   * Get replies to a comment
+   */
+  async getCommentReplies(commentId: string, page = 1, limit = 20) {
+    const res = await api.get(`/titles/comments/${commentId}/replies`, { params: { page, limit } });
+    return res.data.data; // { replies, total, page, limit, hasMore }
   },
 
   /**

@@ -144,7 +144,7 @@ export const TitleDetailPage: React.FC = () => {
       // Revert on error
       setIsLiked(prevLiked);
       setLikeCount(prevCount);
-      toast.error('Could not update like status');
+      toast.error(err?.response?.data?.error || err?.message || 'Could not update like status');
     }
   };
 
