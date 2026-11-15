@@ -66,11 +66,18 @@ export const TitleDetailPage: React.FC = () => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isWatched, setIsWatched] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(142);
+  const [likeCount, setLikeCount] = useState(0);
   const [userRating, setUserRating] = useState<number>(0);
-  const [myVotedOptionIdx, setMyVotedOptionIdx] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [watchlistActionLoading, setWatchlistActionLoading] = useState(false);
+
+  // Sync real title likes and user like status from title data
+  useEffect(() => {
+    if (title) {
+      setIsLiked(!!title.isLiked);
+      setLikeCount(title.likesCount ?? 0);
+    }
+  }, [title]);
 
   // Sync real watchlist and watched status from MongoDB on title load
   useEffect(() => {
@@ -115,10 +122,30 @@ export const TitleDetailPage: React.FC = () => {
     return true;
   };
 
-  const toggleLikeTitle = () => {
+  const toggleLikeTitle = async () => {
     if (!requireAuth()) return;
-    setIsLiked((prev) => !prev);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+    const titleTargetId = title?._id || (title as any)?.id || id;
+    if (!titleTargetId) return;
+
+    const prevLiked = isLiked;
+    const prevCount = likeCount;
+
+    // Optimistic UI update
+    setIsLiked(!prevLiked);
+    setLikeCount(prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+
+    try {
+      const res = await titleService.toggleLikeTitle(String(titleTargetId));
+      setIsLiked(res.isLiked);
+      setLikeCount(res.likesCount);
+      setTitle((prev) => (prev ? { ...prev, isLiked: res.isLiked, likesCount: res.likesCount } : prev));
+    } catch (err: any) {
+      console.error('Failed to toggle title like:', err);
+      // Revert on error
+      setIsLiked(prevLiked);
+      setLikeCount(prevCount);
+      toast.error('Could not update like status');
+    }
   };
 
   const toggleWatchedTitle = async () => {

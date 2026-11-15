@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles, BarChart2, Check, User, X, Clock } from 'lucide-react';
+import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles, BarChart2, Check, X, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 
@@ -173,10 +173,8 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   }, [post.likedByMe, post.likesCount]);
 
   // Poll state
-  const [pollHasVoted, setPollHasVoted] = useState(false);
-  const [pollSelectedOption, setPollSelectedOption] = useState<number | null>(null);
   const [pollVoting, setPollVoting] = useState(false);
-  const [localPoll, setLocalPoll] = useState<{ question: string; options: { text: string; votesCount: number }[] } | null>(post.poll ?? null);
+  const [localPoll, setLocalPoll] = useState<{ question: string; options: { text: string; votesCount: number; userHasVoted: boolean }[] } | null>(post.poll ?? null);
 
   const totalPollVotes = localPoll?.options.reduce((sum, opt) => sum + opt.votesCount, 0) || 0;
 
@@ -184,7 +182,6 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [likersModalOpen, setLikersModalOpen] = useState(false);
   const [likers, setLikers] = useState<Array<{ id: string; name: string; handle?: string; avatar?: string }>>([]);
   const [likersTotal, setLikersTotal] = useState(0);
-  const [likersLoading, setLikersLoading] = useState(false);
 
   // Replies modal state
   const [repliesModalOpen, setRepliesModalOpen] = useState(false);
@@ -224,7 +221,6 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
 
   const handleLikeCountClick = async () => {
     if (likes === 0) return;
-    setLikersLoading(true);
     try {
       const data = await titleService.getCommentLikers(post.id);
       setLikers(data.likers || []);
@@ -232,8 +228,6 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
       setLikersModalOpen(true);
     } catch (err) {
       console.error('Failed to load likers:', err);
-    } finally {
-      setLikersLoading(false);
     }
   };
 
@@ -254,13 +248,11 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   };
 
   const handlePollVote = async (optIdx: number) => {
-    if (pollHasVoted || pollVoting) return;
+    if (pollVoting) return;
     setPollVoting(true);
     try {
       // titleService.voteCommentPoll returns the full updated comment object directly
       const updatedComment = await titleService.voteCommentPoll(post.id, optIdx);
-      setPollHasVoted(true);
-      setPollSelectedOption(optIdx);
       // Sync vote counts from the returned comment's poll
       const updatedPoll = updatedComment?.poll;
       if (updatedPoll) {
@@ -380,14 +372,12 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
                     <button
                       key={optIdx}
                       type="button"
-                      disabled={pollHasVoted}
+                      disabled={hasVotedThis}
                       onClick={() => handlePollVote(optIdx)}
                       className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
                         hasVotedThis
                           ? 'border-indigo-500 bg-indigo-950/50'
-                          : pollHasVoted
-                            ? 'border-slate-800 bg-slate-950/60 opacity-70 cursor-not-allowed'
-                            : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
+                          : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
                       }`}
                     >
                       {/* Progress bar */}

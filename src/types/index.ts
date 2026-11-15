@@ -220,6 +220,8 @@ export interface Title {
   backdropUrl?: string;
   releaseYear?: number;
   voteAverage?: number;
+  likesCount?: number;
+  isLiked?: boolean;
   moodTags: string[];
   cast: {
     actorName: string;

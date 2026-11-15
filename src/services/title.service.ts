@@ -122,6 +122,15 @@ export const titleService = {
   },
 
   /**
+   * Toggle like on a title (like/unlike)
+   */
+  async toggleLikeTitle(titleId: string) {
+    const res = await api.post(`/titles/${titleId}/like`);
+    invalidateCache(['/titles/']);
+    return res.data.data; // { titleId, isLiked, likesCount }
+  },
+
+  /**
    * Get users who liked a comment
    */
   async getCommentLikers(commentId: string, page = 1, limit = 20) {
