@@ -995,7 +995,7 @@ export const GroupSessionPage: React.FC = () => {
                               ? 'TV Series'
                               : 'Movie'}
                           </span>
-                          {title.voteAverage && (
+                          {/* {title.voteAverage ? (
                             <>
                               <span>•</span>
                               <span className="text-amber-400 flex items-center gap-0.5">
@@ -1003,7 +1003,16 @@ export const GroupSessionPage: React.FC = () => {
                                 {Number(title.voteAverage).toFixed(1)}
                               </span>
                             </>
-                          )}
+                          )} */}
+                          {title.voteAverage && (
+                            <>
+                            <span>•</span>
+                            <span className="text-amber-400 flex items-center gap-0.5">
+                              <Star className="w-3 h-3 fill-amber-400" />
+                              {Number(title.voteAverage).toFixed(1)}
+                              </span>
+                              </>
+                            )}
                         </p>
                       </div>
                     </div>
@@ -1270,7 +1279,7 @@ export const GroupSessionPage: React.FC = () => {
                                   </span>
                                 </>
                               )}
-                              {title.voteAverage && (
+                              {title.voteAverage ? (
                                 <>
                                   <span>•</span>
                                   <span className="text-amber-400 font-semibold flex items-center gap-0.5">
@@ -1278,7 +1287,7 @@ export const GroupSessionPage: React.FC = () => {
                                     {Number(title.voteAverage).toFixed(1)}
                                   </span>
                                 </>
-                              )}
+                              ) : null}
                             </p>
                           </div>
                         </div>

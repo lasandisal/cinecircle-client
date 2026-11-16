@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles, BarChart2, Check, X, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
+import { useAppSelector } from '../../hooks/useAppRedux';
 
 export interface FeedPostProps {
   id: string;
@@ -165,6 +166,8 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [liked, setLiked] = useState(post.likedByMe ?? false);
   const [likes, setLikes] = useState(post.likesCount);
   const [bookmarked, setBookmarked] = useState(false);
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const currentUserId = currentUser?._id || (currentUser as any)?.id || null;
 
   // Sync liked state from backend prop when it changes (e.g. after parent re-render)
   useEffect(() => {
@@ -298,7 +301,12 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
           options: (updatedPoll.options || []).map((opt: any) => ({
             text: opt.text || opt.optionText,
             votesCount: opt.votesCount ?? opt.votes?.length ?? 0,
-            userHasVoted: opt.userHasVoted ?? false,
+            // The vote endpoint returns the RAW poll shape
+            // ({ optionText, votes: [userId, ...] }) - it has no
+            // `userHasVoted` field. Reading that field directly always
+            // returned undefined -> "Your vote" never highlighted until
+            // a page refresh. Derive it from the votes array instead.
+            userHasVoted: opt.userHasVoted ?? (currentUserId ? !!opt.votes?.includes(currentUserId) : false),
           })),
         });
       }
@@ -330,10 +338,21 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
           </div>
         </div>
 
-        {post.author.mutualCount && (
+        {post.author.mutualCount ? (
           <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center gap-1 shrink-0">
             <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             <span>{post.author.mutualCount} mutuals</span>
+          </span>
+        ) : (
+          /* Comment count for this post - the stray "0" that used to sit here
+             was `mutualCount && (...)` rendering the literal 0. */
+          <span
+            className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-indigo-400 transition-colors shrink-0 cursor-pointer"
+            onClick={handleCommentCountClick}
+            title="View comments"
+          >
+            {/* <MessageSquare className="w-3.5 h-3.5" />
+            <span>{localCommentCount}</span> */}
           </span>
         )}
       </div>
@@ -503,17 +522,17 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
             bookmarked ? 'text-amber-400 font-semibold' : 'hover:text-amber-300'
           }`}
         >
-          <Bookmark className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${bookmarked ? 'fill-amber-400' : ''}`} />
-          <span>{bookmarked ? 'Saved' : 'Save'}</span>
+          {/* <Bookmark className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${bookmarked ? 'fill-amber-400' : ''}`} /> */}
+          {/* <span>{bookmarked ? 'Saved' : 'Save'}</span> */}
         </button>
 
-        <Link
+        {/* <Link
           to={`/group`}
           className="flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 hover:text-indigo-400 text-indigo-400/90 font-medium transition-all"
-        >
-          <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-          <span>Circle</span>
-        </Link>
+        > */}
+          {/* <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> */}
+          {/* <span>Circle</span> */}
+        {/* </Link> */}
       </div>
 
       {/* Comment input: reply to THIS post */}

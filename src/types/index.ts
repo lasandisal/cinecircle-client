@@ -155,7 +155,12 @@ export interface CommunityPerson {
     watchedCount: number;
     circlesCount: number;
   };
-  matchScore: number;
+  /** 0-100, or null when there is not enough shared history to score honestly. */
+  matchScore: number | null;
+  /** Human readable reason behind the score (or why there is none). */
+  matchExplanation?: string;
+  /** 'taste' | 'watched' | 'both' | 'none' */
+  matchBasis?: 'taste' | 'watched' | 'both' | 'none';
 }
 
 export type ReactionEmoji = 'like' | 'love' | 'fire' | 'mindblown' | 'popcorn' | 'sad';

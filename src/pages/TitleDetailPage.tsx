@@ -2194,12 +2194,12 @@ export const TitleDetailPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {comment.rating && (
+                        {comment.rating ? (
                           <span className="flex items-center gap-1 text-[11px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20">
                             <Star className="w-3 h-3 fill-amber-400" />
                             {comment.rating}.0
                           </span>
-                        )}
+                        ) : null}
 
                         {/* Delete - owner only */}
                         {comment.user?._id === currentUser?._id && (

@@ -10,6 +10,8 @@ export interface UserSuggestion {
   /** Real compatibility 0-100, or null when there is no shared signal yet. */
   matchScore: number | null;
   matchExplanation: string;
+  /** 'taste' | 'watched' | 'both' | 'none' - why there is (or is not) a score. */
+  matchBasis?: 'taste' | 'watched' | 'both' | 'none';
   mutualCount: number;
 }
 

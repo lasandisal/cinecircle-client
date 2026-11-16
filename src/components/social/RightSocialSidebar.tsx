@@ -108,7 +108,7 @@ export const RightSocialSidebar: React.FC = () => {
         <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 space-y-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-              Similar Taste Profiles
+              Suggested Members
             </h4>
             <Link to="/profile" className="text-[10px] text-slate-400 hover:text-indigo-300 transition-colors">
               See all
@@ -134,9 +134,10 @@ export const RightSocialSidebar: React.FC = () => {
                           {user.name}
                       </p>
                       <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                        {user.mutualCount > 0
-                          ? `${user.mutualCount} mutual film${user.mutualCount === 1 ? '' : 's'}`
-                          : 'no shared titles yet'}
+                        {user.matchScore != null
+                          ? user.matchExplanation ||
+                            `${user.mutualCount} mutual film${user.mutualCount === 1 ? '' : 's'}`
+                          : 'Taste match unknown - no shared history yet'}
                       </p>
                     </div>
                   </Link>
