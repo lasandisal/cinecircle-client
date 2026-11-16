@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Heart, MessageSquare, Bookmark, Share2, Sparkles, BarChart2, Check, X, Clock } from 'lucide-react';
+import { Star, Heart, MessageSquare,  Sparkles, BarChart2, Check, X, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 import { useAppSelector } from '../../hooks/useAppRedux';
