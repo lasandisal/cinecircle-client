@@ -37,7 +37,6 @@ import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser, logout } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
 import { clearAuthScopedCache } from '../services/requestCache';
-import { uploadProfileImage } from '../services/supabase';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useToast } from '../hooks/useToast';
 import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
@@ -243,7 +242,7 @@ export const ProfilePage: React.FC = () => {
 
     try {
       setIsUploadingAvatar(true);
-      setEditAvatar(await uploadProfileImage(file, userId));
+      setEditAvatar(await userService.uploadAvatar(file));
     } catch (err) {
       console.error('Failed to upload profile image:', err);
       setAvatarUploadError('Image upload failed. Please try again.');
@@ -1038,7 +1037,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <Link
-                      to={`/group`}
+                      to={circle.joinCode ? `/group?code=${circle.joinCode.replace(/^#/, '').toUpperCase().trim()}` : `/group`}
                       className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold text-center border border-slate-700 transition-colors flex items-center justify-center gap-2"
                     >
                       <Play className="w-3.5 h-3.5 text-violet-400 fill-violet-400" />

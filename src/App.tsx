@@ -11,17 +11,18 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    const token = localStorage.getItem('cinecircle_token');
-    if (token) {
-      dispatch(fetchCurrentUser());
-    }
+    // The session cookie is HttpOnly, so we cannot check it from JavaScript.
+    // Ask the API who we are; a 401 simply means "guest".
+    dispatch(fetchCurrentUser());
   }, [dispatch]);
 
   return <>{children}</>;
 };
 
+
 export const App: React.FC = () => {
   return (
+    // Wrap the application with the Redux Provider and BrowserRouter
     <Provider store={store}>
       <BrowserRouter>
         <AuthInitializer>

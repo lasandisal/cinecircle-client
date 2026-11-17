@@ -119,8 +119,7 @@ flowchart LR
 | **State Management** | Redux Toolkit | 2.x | Centralized global store with async thunks |
 | **Routing** | React Router | 7.x (`react-router-dom`) | Declarative client-side routing & route guards |
 | **Real-Time** | Socket.IO Client | 4.x | WebSocket client for live watch room synchronization |
-| **HTTP Client** | Axios | 1.x | REST requests with interceptors and token management |
-| **Media & Storage**| `@supabase/supabase-js`| 2.x | Storage integration for member avatars & uploads |
+| **HTTP Client** | Axios | 1.x | REST requests with `withCredentials` so the HttpOnly session cookie is sent |
 | **Icons** | Lucide React | 1.x | Clean, consistent SVG iconography |
 | **Linter** | Oxlint | Latest | High-speed Rust-based JavaScript/TypeScript linter |
 
@@ -201,10 +200,16 @@ VITE_API_BASE_URL=http://localhost:5000/api
 # Real-time WebSocket Server URL
 VITE_SOCKET_URL=http://localhost:5000
 
-# Supabase Storage (for avatars and uploads)
-VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_publishable_key
+# Nothing else is required. The session JWT is an HttpOnly cookie set by the
+# API, and avatar uploads go through POST /api/users/avatar. No token and no
+# Supabase key is ever exposed to frontend code.
 ```
+
+> **Auth note:** every request uses `withCredentials: true`, so the browser
+> stores and sends the HttpOnly `cinecircle_token` cookie. Page JavaScript
+> cannot read it, which removes the usual XSS token-theft path. In production
+> the cookie is `SameSite=None; Secure` because the client and API are on
+> different sites; in local development it is `SameSite=Lax`.
 
 ### 5.2 Development & Build Commands
 

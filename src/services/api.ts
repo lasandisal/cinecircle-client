@@ -11,28 +11,13 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // The session JWT lives in an HttpOnly cookie set by the API. `withCredentials`
+  // makes the browser store that cookie and send it on every request.
+  withCredentials: true,
+  // Never let a stalled request hang the UI forever (the auth bootstrap waits
+  // on /auth/me before deciding whether a protected page may render).
+  timeout: 45_000,
 });
 
-// Request interceptor to attach JWT token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('cinecircle_token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear token if expired or unauthorized
-      localStorage.removeItem('cinecircle_token');
-    }
-    return Promise.reject(error);
-  }
-);
+// No request interceptor is needed any more: there is no token for JavaScript
+// to attach, which is the point of the cookie migration.

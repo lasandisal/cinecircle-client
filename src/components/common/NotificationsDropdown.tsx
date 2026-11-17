@@ -15,11 +15,26 @@ export interface NotificationItem {
   timestamp: string;
   read: boolean;
   actionUrl?: string;
+  joinCode?: string;
   actionText?: string;
   requestId?: string;
   invitationId?: string;
   sessionId?: string;
 }
+
+const resolveActionUrl = (n: NotificationItem): string | undefined => {
+  if (n.actionUrl && n.actionUrl.includes('?code=')) {
+    return n.actionUrl;
+  }
+  if (n.joinCode) {
+    return `/group?code=${n.joinCode.replace(/^#/, '').toUpperCase().trim()}`;
+  }
+  const match = n.detail?.match(/Room Code:\s*#?([A-Za-z0-9]+)/i);
+  if (match && match[1]) {
+    return `/group?code=${match[1].toUpperCase().trim()}`;
+  }
+  return n.actionUrl;
+};
 
 const STORAGE_KEY = 'cinecircle_read_notifications_v2';
 
@@ -295,14 +310,16 @@ export const NotificationsDropdown: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  filteredNotifications.map((n) => (
+                  filteredNotifications.map((n) => {
+                    const targetUrl = resolveActionUrl(n);
+                    return (
                     <div
                       key={n.id}
                       onClick={() => {
                         markAsRead(n.id);
-                        if (n.actionUrl && !n.requestId && !n.invitationId) {
+                        if (targetUrl && !n.requestId && !n.invitationId) {
                           setIsOpen(false);
-                          navigate(n.actionUrl);
+                          navigate(targetUrl);
                         }
                       }}
                       className={`p-3.5 flex gap-3 hover:bg-slate-900/60 transition-colors cursor-pointer ${
@@ -326,9 +343,9 @@ export const NotificationsDropdown: React.FC = () => {
                       {/* Body */}
                       <div className="flex-1 min-w-0 space-y-1">
                         <p className="text-xs text-slate-200 leading-snug">
-                          {n.actionUrl ? (
+                          {targetUrl ? (
                             <Link
-                              to={n.actionUrl}
+                              to={targetUrl}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 markAsRead(n.id);
@@ -392,8 +409,8 @@ export const NotificationsDropdown: React.FC = () => {
                                 e.stopPropagation();
                                 markAsRead(n.id);
                                 setIsOpen(false);
-                                if (n.actionUrl) {
-                                  navigate(n.actionUrl);
+                                if (targetUrl) {
+                                  navigate(targetUrl);
                                 }
                               }}
                               className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer"
@@ -411,7 +428,8 @@ export const NotificationsDropdown: React.FC = () => {
                         <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 self-center shadow-sm shadow-indigo-500/50"></span>
                       )}
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 

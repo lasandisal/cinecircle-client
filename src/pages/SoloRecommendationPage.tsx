@@ -62,13 +62,19 @@ export const SoloRecommendationPage: React.FC = () => {
       setHasAppliedFilters(true);
     } catch (err) {
       console.error('Failed to compute recommendations:', err);
-      setRecommendationError(
-        axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : err instanceof Error
-            ? err.message
-            : 'Could not load recommendations. Please try again.'
-      );
+      let message = 'Could not load recommendations. Please try again.';
+      if (axios.isAxiosError(err)) {
+        if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+          message = 'The AI recommendation engine took a bit longer than expected to analyze your taste and stream sources. Please tap "Try again" to retry.';
+        } else if (!err.response) {
+          message = 'Unable to reach CineCircle servers. Please check your connection and try again.';
+        } else {
+          message = err.response.data?.error || err.message || message;
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      setRecommendationError(message);
     } finally {
       setLoading(false);
     }
@@ -85,13 +91,19 @@ export const SoloRecommendationPage: React.FC = () => {
       setTrendingSource(source);
     } catch (err) {
       console.error('Failed to load trending titles:', err);
-      setRecommendationError(
-        axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : err instanceof Error
-            ? err.message
-            : 'Could not load titles. Please try again.'
-      );
+      let message = 'Could not load titles. Please try again.';
+      if (axios.isAxiosError(err)) {
+        if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+          message = 'Loading popular titles took longer than expected. Please tap "Try again".';
+        } else if (!err.response) {
+          message = 'Unable to reach CineCircle servers. Please check your connection and try again.';
+        } else {
+          message = err.response.data?.error || err.message || message;
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      setRecommendationError(message);
     }
   };
 

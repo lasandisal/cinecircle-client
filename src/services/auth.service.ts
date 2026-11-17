@@ -4,7 +4,6 @@ import type { User } from '../types';
 
 export interface AuthResponseData {
   user: User;
-  token: string;
 }
 
 export interface RegisterPayload {
@@ -33,6 +32,7 @@ export const authService = {
   },
 
   async register(payload: RegisterPayload): Promise<AuthResponseData> {
+    // The API sets an HttpOnly session cookie on success; no token is returned.
     const res = await api.post('/auth/register', payload);
     return res.data.data;
   },
@@ -42,13 +42,16 @@ export const authService = {
     return res.data.data;
   },
 
+  async logout(): Promise<void> {
+    await api.post('/auth/logout');
+  },
+
   async getMe(): Promise<User> {
     const res = await cachedGet('/auth/me', undefined, { ttlMs: 60_000 });
     return res.data.data.user;
   },
 
-  async refresh(): Promise<string> {
-    const res = await api.post('/auth/refresh');
-    return res.data.data.token;
+  async refresh(): Promise<void> {
+    await api.post('/auth/refresh');
   },
 };

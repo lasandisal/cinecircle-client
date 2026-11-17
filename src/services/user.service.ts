@@ -49,6 +49,23 @@ export const userService = {
   },
 
   /**
+   * Upload a profile image.
+   * POST /api/users/avatar (multipart/form-data, field name "avatar")
+   *
+   * The server validates the bytes (magic number + 5 MB cap) before storing
+   * them, so the browser cannot pass an arbitrary file off as an image.
+   */
+  async uploadAvatar(file: File): Promise<string> {
+    const form = new FormData();
+    form.append('avatar', file);
+    const res = await api.post('/users/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    invalidateCache(['/users/profile', '/auth/me']);
+    return res.data.data.url;
+  },
+
+  /**
    * Search real community members / Find more people
    */
   async searchPeople(query = ''): Promise<CommunityPerson[]> {

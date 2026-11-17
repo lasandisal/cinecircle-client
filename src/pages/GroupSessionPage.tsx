@@ -31,7 +31,8 @@ import type { CommunityPerson, ConnectionPerson, Title } from '../types';
 
 export const GroupSessionPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialCode = searchParams.get('code') || '';
+  const rawCode = searchParams.get('code') || '';
+  const initialCode = rawCode.replace(/^#/, '').toUpperCase().trim();
 
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
@@ -286,7 +287,7 @@ export const GroupSessionPage: React.FC = () => {
     }
 
     try {
-      const cleanCode = code.toUpperCase().trim();
+      const cleanCode = code.replace(/^#/, '').toUpperCase().trim();
       let data: { session: GroupSessionDetail; votes?: any[] };
 
       // Joining persists the participant; guests fall back to a public read.
@@ -330,9 +331,10 @@ export const GroupSessionPage: React.FC = () => {
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCodeInput.trim()) return;
-    setSearchParams({ code: joinCodeInput.toUpperCase().trim() });
-    loadSessionByCode(joinCodeInput.toUpperCase().trim());
+    const clean = joinCodeInput.replace(/^#/, '').toUpperCase().trim();
+    if (!clean) return;
+    setSearchParams({ code: clean });
+    loadSessionByCode(clean);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {

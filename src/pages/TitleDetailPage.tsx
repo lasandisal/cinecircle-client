@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Star,
   Clock,
@@ -38,6 +38,7 @@ import { StreamingBadge } from '../components/common/StreamingBadge';
 import { ExternalRatings } from '../components/common/ExternalRatings';
 import { useToast } from '../hooks/useToast';
 import { useAppSelector } from '../hooks/useAppRedux';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 // Available Facebook/Social Emoji Reactions
 const EMOJI_REACTIONS: { key: ReactionEmoji; emoji: string; label: string }[] = [
@@ -53,9 +54,9 @@ export const TitleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type') as 'film' | 'tv' | null;
-  const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user: currentUser } = useAppSelector((state) => state.auth);
+  const { requireAuth } = useRequireAuth();
   const toast = useToast();
 
   const [title, setTitle] = useState<Title | null>(null);
@@ -113,14 +114,6 @@ export const TitleDetailPage: React.FC = () => {
     });
     setMyVotesMap(votesMap);
   }, [currentUser?._id, title?.comments]);
-
-  const requireAuth = (): boolean => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: location } });
-      return false;
-    }
-    return true;
-  };
 
   const toggleLikeTitle = async () => {
     if (!requireAuth()) return;
@@ -713,7 +706,7 @@ export const TitleDetailPage: React.FC = () => {
   };
 
   const handleReaction = async (commentId: string, emoji: ReactionEmoji) => {
-    if (!isAuthenticated) return;
+    if (!requireAuth()) return;
     setActiveReactionPicker(null);
 
     try {
@@ -974,11 +967,12 @@ export const TitleDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={toggleWatchedTitle}
+                title={isAuthenticated ? undefined : 'Sign in to track what you watch'}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   isWatched
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
                     : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:bg-slate-800'
-                }`}
+                } ${!isAuthenticated ? 'opacity-60' : ''}`}
               >
                 <CheckCircle2
                   className={`w-4 h-4 ${isWatched ? 'text-emerald-400' : 'text-slate-400'}`}
@@ -990,11 +984,12 @@ export const TitleDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={toggleLikeTitle}
+                title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Sign in to like'}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   isLiked
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/20'
                     : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:bg-slate-800'
-                }`}
+                } ${!isAuthenticated ? 'opacity-60' : ''}`}
               >
                 <Heart
                   className={`w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`}
@@ -1003,7 +998,11 @@ export const TitleDetailPage: React.FC = () => {
               </button>
 
               {/* Interactive Star Rating */}
-              <div className="flex items-center gap-1 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5">
+              <div
+                className={`flex items-center gap-1 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 ${
+                  !isAuthenticated ? 'opacity-60' : ''
+                }`}
+              >
                 <span className="text-[11px] text-slate-400 mr-1.5">Your Rating:</span>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -1012,6 +1011,7 @@ export const TitleDetailPage: React.FC = () => {
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => handleRateTitle(star)}
+                    title={isAuthenticated ? `Rate ${star} star${star === 1 ? '' : 's'}` : 'Sign in to rate'}
                     className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
                   >
                     <Star
@@ -1044,11 +1044,12 @@ export const TitleDetailPage: React.FC = () => {
                 type="button"
                 onClick={handleToggleWatchlist}
                 disabled={watchlistActionLoading}
+                title={isAuthenticated ? undefined : 'Sign in to save this title'}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-xs transition-all cursor-pointer ${
                   isInWatchlist
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10'
                     : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-white'
-                }`}
+                } ${!isAuthenticated ? 'opacity-60' : ''}`}
               >
                 {watchlistActionLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1162,7 +1163,10 @@ export const TitleDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={toggleWatchedTitle}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                title={isAuthenticated ? undefined : 'Sign in to track what you watch'}
+                className={`px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                  !isAuthenticated ? 'opacity-60' : ''
+                }`}
               >
                 <Check className="w-3.5 h-3.5" /> Mark as Watched
               </button>
@@ -2255,13 +2259,14 @@ export const TitleDetailPage: React.FC = () => {
                                 <button
                                   key={optIdx}
                                   type="button"
-                                  disabled={!isAuthenticated || hasVotedThis}
+                                  disabled={hasVotedThis}
                                   onClick={() => handlePollVote(comment._id, optIdx)}
+                                  title={!isAuthenticated ? 'Sign in to vote' : undefined}
                                   className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
                                     hasVotedThis
                                       ? 'border-indigo-500 bg-indigo-950/50'
                                       : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
-                                  }`}
+                                  } ${!isAuthenticated ? 'opacity-60' : ''}`}
                                 >
                                   {/* Progress bar */}
                                   <div className="absolute left-0 top-0 bottom-0 transition-all duration-300 ${
@@ -2303,11 +2308,12 @@ export const TitleDetailPage: React.FC = () => {
                                 key={emojiKey}
                                 type="button"
                                 onClick={() => handleReaction(comment._id, emojiKey as ReactionEmoji)}
+                                title={isAuthenticated ? undefined : 'Sign in to react'}
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${
                                   isMyReaction
                                     ? 'bg-indigo-600/25 border-indigo-500/50 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                                }`}
+                                } ${!isAuthenticated ? 'opacity-60' : ''}`}
                               >
                                 <span>{found?.emoji || '👍'}</span>
                                 <span>{count}</span>
@@ -2326,8 +2332,14 @@ export const TitleDetailPage: React.FC = () => {
                               comment.likedByMe
                                 ? 'text-rose-400'
                                 : 'text-slate-400 hover:text-rose-400'
-                            }`}
-                            title={comment.likedByMe ? 'Unlike' : 'Like'}
+                            } ${!isAuthenticated ? 'opacity-60' : ''}`}
+                            title={
+                              isAuthenticated
+                                ? comment.likedByMe
+                                  ? 'Unlike'
+                                  : 'Like'
+                                : 'Sign in to like'
+                            }
                           >
                             <Heart className={`w-3.5 h-3.5 ${comment.likedByMe ? 'fill-rose-400' : ''}`} />
                             <span>{comment.likesCount || 0}</span>
@@ -2337,12 +2349,16 @@ export const TitleDetailPage: React.FC = () => {
                           <div className="relative">
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                if (!requireAuth()) return;
                                 setActiveReactionPicker(
                                   activeReactionPicker === comment._id ? null : comment._id
-                                )
-                              }
-                              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                                );
+                              }}
+                              title={isAuthenticated ? undefined : 'Sign in to react'}
+                              className={`flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer ${
+                                !isAuthenticated ? 'opacity-60' : ''
+                              }`}
                             >
                               <Smile className="w-3.5 h-3.5 text-indigo-400" />
                               <span>{userReaction ? 'Reacted' : 'React'}</span>
@@ -2369,10 +2385,14 @@ export const TitleDetailPage: React.FC = () => {
                           {/* Reply Toggle */}
                           <button
                             type="button"
-                            onClick={() =>
-                              setReplyingToId(replyingToId === comment._id ? null : comment._id)
-                            }
-                            className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (!requireAuth()) return;
+                              setReplyingToId(replyingToId === comment._id ? null : comment._id);
+                            }}
+                            title={isAuthenticated ? undefined : 'Sign in to reply'}
+                            className={`flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer ${
+                              !isAuthenticated ? 'opacity-60' : ''
+                            }`}
                           >
                             <CornerDownRight className="w-3.5 h-3.5 text-slate-400" />
                             <span>Reply</span>
@@ -2388,8 +2408,10 @@ export const TitleDetailPage: React.FC = () => {
                               type="button"
                               onClick={() => handleReportComment(comment._id)}
                               disabled={reportingCommentId === comment._id}
-                              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
-                              title="Report this comment to a curator"
+                              className={`flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50 ${
+                                !isAuthenticated ? 'opacity-60' : ''
+                              }`}
+                              title={isAuthenticated ? 'Report this comment to a curator' : 'Sign in to report'}
                             >
                               {reportingCommentId === comment._id ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -130,7 +130,7 @@ export const GroupSessionCard: React.FC<{ session: GroupPollProps }> = ({ sessio
           <Sparkles className="w-3 h-3 text-indigo-400" /> Real-time weighted compromise scoring
         </span>
         <Link
-          to="/group"
+          to={session.joinCode ? `/group?code=${session.joinCode.replace(/^#/, '').toUpperCase().trim()}` : '/group'}
           className="py-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/20"
         >
           <span>Enter Room</span>

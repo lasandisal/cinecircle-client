@@ -20,6 +20,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux';
 import { logout } from '../../store/slices/authSlice';
 import { titleService } from '../../services/title.service';
 import { userService } from '../../services/user.service';
+import { authService } from '../../services/auth.service';
 import { clearAuthScopedCache } from '../../services/requestCache';
 import type { Title, CommunityPerson } from '../../types';
 import { StreamingBadge } from './StreamingBadge';
@@ -202,8 +203,14 @@ export const Navbar: React.FC = () => {
     navigate(`/title/${title._id || title.tmdbId}${title.type ? `?type=${title.type}` : ''}`);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     setProfileDropdownOpen(false);
+    try {
+      // Clears the HttpOnly cookie on the server.
+      await authService.logout();
+    } catch {
+      // Already signed out / offline: local cleanup still has to happen.
+    }
     dispatch(logout());
     // Drop this member's cached responses so the next person to sign in on
     // this browser cannot read their watch circles / join codes.

@@ -36,9 +36,43 @@ const stableSerialize = (value: unknown): string => {
     .join(',')}}`;
 };
 
+const AUTH_SCOPE_KEY = 'cinecircle_api_scope';
+
+const createScopeId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+};
+
+/**
+ * The cache key's user segment.
+ *
+ * It used to be derived from the JWT. The token now lives in an HttpOnly
+ * cookie, so JavaScript cannot read it - and shouldn't. A random per-session
+ * scope gives the same isolation without exposing the credential.
+ */
 const getAuthScope = (): string => {
-  const token = localStorage.getItem('cinecircle_token');
-  return token ? `user:${token.slice(-16)}` : 'guest';
+  try {
+    const existing = sessionStorage.getItem(AUTH_SCOPE_KEY);
+    if (existing) return existing;
+
+    const created = `scope:${createScopeId()}`;
+    sessionStorage.setItem(AUTH_SCOPE_KEY, created);
+    return created;
+  } catch {
+    // sessionStorage unavailable (private mode / blocked): use a per-load scope.
+    return 'scope:memory';
+  }
+};
+
+/** Start a fresh cache namespace after login, logout or account switch. */
+export const rotateAuthScope = (): void => {
+  try {
+    sessionStorage.setItem(AUTH_SCOPE_KEY, `scope:${createScopeId()}`);
+  } catch {
+    // Non-fatal: the in-memory cache is cleared by clearAuthScopedCache().
+  }
 };
 
 const createKey = (url: string, config: AxiosRequestConfig | undefined, persist: boolean): string =>
@@ -191,6 +225,9 @@ export const clearAuthScopedCache = (): void => {
       sessionStorage.removeItem(key);
     }
   }
+
+  // The next session must not inherit this scope's keys either.
+  rotateAuthScope();
 };
 
 /** Nuclear option - wipe every cached response (public + user scoped). */

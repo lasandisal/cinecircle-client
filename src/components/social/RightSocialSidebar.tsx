@@ -88,12 +88,12 @@ export const RightSocialSidebar: React.FC = () => {
             type="text"
             placeholder="e.g. SCI890"
             value={joinCodeInput}
-            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+            onChange={(e) => setJoinCodeInput(e.target.value.replace(/^#/, '').toUpperCase().trim())}
             maxLength={6}
             className="flex-1 px-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 uppercase tracking-widest font-mono focus:outline-none focus:border-indigo-500"
           />
           <Link
-            to={`/group?code=${joinCodeInput}`}
+            to={joinCodeInput ? `/group?code=${joinCodeInput.replace(/^#/, '').toUpperCase().trim()}` : '/group'}
             className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1 transition-colors"
           >
             <span>Enter</span>

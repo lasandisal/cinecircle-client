@@ -9,11 +9,13 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { isAuthenticated, user, isInitialized, loading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user, isInitialized } = useAppSelector((state) => state.auth);
   const location = useLocation();
 
-  // If token is present and app is still rehydrating current user, show minimal loader
-  if (!isInitialized && loading) {
+  // The session cookie is HttpOnly, so JavaScript cannot read it. Until
+  // /auth/me answers we genuinely do not know if this visitor is signed in -
+  // redirecting now would bounce a signed-in member on a hard refresh.
+  if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>

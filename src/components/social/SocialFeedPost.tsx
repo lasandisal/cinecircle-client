@@ -3,6 +3,7 @@ import { Star, Heart, MessageSquare,  Sparkles, BarChart2, Check, X, Clock } fro
 import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 import { useAppSelector } from '../../hooks/useAppRedux';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 
 export interface FeedPostProps {
   id: string;
@@ -168,6 +169,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [bookmarked, setBookmarked] = useState(false);
   const currentUser = useAppSelector((state) => state.auth.user);
   const currentUserId = currentUser?._id || (currentUser as any)?.id || null;
+  const { isAuthenticated, requireAuth } = useRequireAuth();
 
   // Sync liked state from backend prop when it changes (e.g. after parent re-render)
   useEffect(() => {
@@ -204,6 +206,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [repliesLoading, setRepliesLoading] = useState(false);
 
   const toggleLike = async () => {
+    if (!requireAuth()) return;
     setLikeError(null);
     if (liked) {
       // Already liked -> unlike
@@ -266,6 +269,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const handleSubmitComment = async () => {
     const text = commentText.trim();
     if (!text || commentSubmitting) return;
+    if (!requireAuth()) return;
     setCommentSubmitting(true);
     setCommentError(null);
     try {
@@ -289,6 +293,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
 
   const handlePollVote = async (optIdx: number) => {
     if (pollVoting) return;
+    if (!requireAuth()) return;
     setPollVoting(true);
     try {
       // titleService.voteCommentPoll returns the full updated comment object directly
@@ -430,11 +435,12 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
                       type="button"
                       disabled={hasVotedThis}
                       onClick={() => handlePollVote(optIdx)}
+                      title={!isAuthenticated ? 'Sign in to vote' : undefined}
                       className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
                         hasVotedThis
                           ? 'border-indigo-500 bg-indigo-950/50'
                           : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
-                      }`}
+                      } ${!isAuthenticated ? 'opacity-60' : ''}`}
                     >
                       {/* Progress bar */}
                       <div className="absolute left-0 top-0 bottom-0 transition-all duration-300 ${
@@ -477,12 +483,17 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleLike();
+              void toggleLike();
             }}
             className={`flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
-              liked ? 'text-rose-500 font-semibold border border-rose-500/30' : 'hover:text-rose-400 hover:border-rose-500/20'
+              !isAuthenticated
+                ? 'text-slate-500 opacity-50'
+                : liked
+                  ? 'text-rose-500 font-semibold border border-rose-500/30'
+                  : 'hover:text-rose-400 hover:border-rose-500/20'
             }`}
             aria-label={liked ? 'Unlike' : 'Like'}
+            title={isAuthenticated ? (liked ? 'Unlike' : 'Like') : 'Sign in to like'}
           >
             <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${liked ? 'fill-rose-500' : ''}`} />
           </button>
@@ -502,13 +513,19 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
 
         <button
           onClick={() => {
+            if (!requireAuth()) return;
             setCommentInputOpen((v) => !v);
             setCommentError(null);
           }}
           className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
-            commentInputOpen ? 'text-indigo-400' : 'hover:text-indigo-400'
+            !isAuthenticated
+              ? 'text-slate-500 opacity-50'
+              : commentInputOpen
+                ? 'text-indigo-400'
+                : 'hover:text-indigo-400'
           }`}
           aria-label="Comment on this post"
+          title={isAuthenticated ? 'Comment on this post' : 'Sign in to comment'}
         >
           <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="cursor-pointer hover:underline hover:text-indigo-400 transition-colors">

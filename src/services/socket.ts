@@ -35,27 +35,21 @@ export interface PresencePayload {
 /**
  * Socket.IO client for CineCircle group rooms.
  *
- * The server now authenticates the handshake with the same JWT used by REST, so
- * the token has to be attached here. Every method returns a promise and the
- * GroupSessionPage keeps REST as a fallback if the socket cannot connect.
+ * The server authenticates the handshake with the same HttpOnly session
+ * cookie used by REST, so the browser attaches it automatically. Every method
+ * returns a promise and the GroupSessionPage keeps REST as a fallback if the
+ * socket cannot connect.
  */
 class SocketService {
   private socket: Socket | null = null;
 
-  private getToken(): string | null {
-    return localStorage.getItem('cinecircle_token');
-  }
-
   connect(): Socket | null {
-    const token = this.getToken();
-    if (!token) return null;
-
     if (this.socket && this.socket.connected) return this.socket;
 
     this.socket = io(SOCKET_URL, {
       autoConnect: true,
+      // Sends the HttpOnly session cookie on the WebSocket handshake.
       withCredentials: true,
-      auth: { token },
       transports: ['websocket'],
     });
 

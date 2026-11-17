@@ -7,22 +7,21 @@ import {
   type LoginPayload,
   type AuthResponseData,
 } from '../../services/auth.service';
+import { rotateAuthScope } from '../../services/requestCache';
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
   isInitialized: boolean;
 }
 
-const initialToken = localStorage.getItem('cinecircle_token');
-
 const initialState: AuthState = {
   user: null,
-  token: initialToken,
-  isAuthenticated: !!initialToken,
+  // The session cookie is HttpOnly, so JavaScript cannot inspect it. The app
+  // starts as a guest and asks /auth/me (cookie included) to find out more.
+  isAuthenticated: false,
   loading: false,
   error: null,
   isInitialized: false,
@@ -35,7 +34,10 @@ export const registerUser = createAsyncThunk<
   { rejectValue: string }
 >('auth/register', async (payload, { rejectWithValue }) => {
   try {
-    return await authService.register(payload);
+    const data = await authService.register(payload);
+    // A new session must not read responses cached while signed out.
+    rotateAuthScope();
+    return data;
   } catch (err: any) {
     const message = err.response?.data?.error || 'Registration failed. Please try again.';
     return rejectWithValue(message);
@@ -48,7 +50,9 @@ export const loginUser = createAsyncThunk<
   { rejectValue: string }
 >('auth/login', async (payload, { rejectWithValue }) => {
   try {
-    return await authService.login(payload);
+    const data = await authService.login(payload);
+    rotateAuthScope();
+    return data;
   } catch (err: any) {
     const message = err.response?.data?.error || 'Login failed. Please check your credentials.';
     return rejectWithValue(message);
@@ -72,22 +76,16 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials: (
-      state,
-      action: PayloadAction<{ user: User; token: string }>
-    ) => {
+    setCredentials: (state, action: PayloadAction<{ user: User }>) => {
       state.user = action.payload.user;
-      state.token = action.payload.token;
       state.isAuthenticated = true;
       state.error = null;
-      localStorage.setItem('cinecircle_token', action.payload.token);
     },
     logout: (state) => {
       state.user = null;
-      state.token = null;
       state.isAuthenticated = false;
       state.error = null;
-      localStorage.removeItem('cinecircle_token');
+      state.isInitialized = true;
     },
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
@@ -108,9 +106,8 @@ export const authSlice = createSlice({
       state.loading = false;
       state.isAuthenticated = true;
       state.user = action.payload.user;
-      state.token = action.payload.token;
       state.error = null;
-      localStorage.setItem('cinecircle_token', action.payload.token);
+      state.isInitialized = true;
     });
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;
@@ -126,9 +123,8 @@ export const authSlice = createSlice({
       state.loading = false;
       state.isAuthenticated = true;
       state.user = action.payload.user;
-      state.token = action.payload.token;
       state.error = null;
-      localStorage.setItem('cinecircle_token', action.payload.token);
+      state.isInitialized = true;
     });
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;
@@ -146,12 +142,11 @@ export const authSlice = createSlice({
       state.isInitialized = true;
     });
     builder.addCase(fetchCurrentUser.rejected, (state) => {
+      // No valid cookie (guest, or the session expired).
       state.loading = false;
       state.user = null;
-      state.token = null;
       state.isAuthenticated = false;
       state.isInitialized = true;
-      localStorage.removeItem('cinecircle_token');
     });
   },
 });

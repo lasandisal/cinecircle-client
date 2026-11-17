@@ -17,7 +17,6 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/useAppRedux';
 import { registerUser, clearError } from '../store/slices/authSlice';
 import { authService } from '../services/auth.service';
-import { uploadProfileImage } from '../services/supabase';
 import { userService } from '../services/user.service';
 
 export const RegisterPage: React.FC = () => {
@@ -106,7 +105,7 @@ export const RegisterPage: React.FC = () => {
       if (registerUser.fulfilled.match(result)) {
         if (profileImage) {
           try {
-            const avatar = await uploadProfileImage(profileImage, result.payload.user._id);
+            const avatar = await userService.uploadAvatar(profileImage);
             await userService.updateProfile({ avatar });
           } catch (uploadError) {
             console.error('Profile image upload failed after registration:', uploadError);

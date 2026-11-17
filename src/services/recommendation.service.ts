@@ -39,7 +39,9 @@ export const recommendationService = {
       queryDurationMs?: number;
     };
   }> {
-    const res = await api.post('/recommendations/solo', params);
+    const res = await api.post('/recommendations/solo', params, {
+      timeout: 60_000,
+    });
     return res.data.data;
   },
 
@@ -47,7 +49,9 @@ export const recommendationService = {
    * Break decision fatigue with single decisive pick
    */
   async getFatiguePick(): Promise<any> {
-    const res = await api.post('/recommendations/fatigue');
+    const res = await api.post('/recommendations/fatigue', undefined, {
+      timeout: 60_000,
+    });
     return res.data.data.championPick;
   },
 };
