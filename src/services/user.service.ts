@@ -58,9 +58,7 @@ export const userService = {
   async uploadAvatar(file: File): Promise<string> {
     const form = new FormData();
     form.append('avatar', file);
-    const res = await api.post('/users/avatar', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const res = await api.post('/users/avatar', form);
     invalidateCache(['/users/profile', '/auth/me']);
     return res.data.data.url;
   },

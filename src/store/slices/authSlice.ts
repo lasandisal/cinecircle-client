@@ -7,6 +7,7 @@ import {
   type LoginPayload,
   type AuthResponseData,
 } from '../../services/auth.service';
+import { userService } from '../../services/user.service';
 import { rotateAuthScope } from '../../services/requestCache';
 
 interface AuthState {
@@ -34,9 +35,24 @@ export const registerUser = createAsyncThunk<
   { rejectValue: string }
 >('auth/register', async (payload, { rejectWithValue }) => {
   try {
-    const data = await authService.register(payload);
+    const { profileImage, ...credentials } = payload;
+    const data = await authService.register(credentials);
     // A new session must not read responses cached while signed out.
     rotateAuthScope();
+
+    // Upload after the session cookie is on the response so /users/avatar is
+    // authenticated. Doing it here (not in the page) means GuestRoute can
+    // unmount RegisterPage without dropping the file.
+    if (profileImage) {
+      try {
+        const avatar = await userService.uploadAvatar(profileImage);
+        const updated = await userService.updateProfile({ avatar });
+        if (updated) data.user = { ...data.user, ...updated };
+      } catch (uploadError) {
+        console.error('Profile image upload failed after registration:', uploadError);
+      }
+    }
+
     return data;
   } catch (err: any) {
     const message = err.response?.data?.error || 'Registration failed. Please try again.';

@@ -12,6 +12,7 @@ export interface RegisterPayload {
   password: string;
   otp: string;
   bio?: string;
+  profileImage?: File;
 }
 
 export interface LoginPayload {

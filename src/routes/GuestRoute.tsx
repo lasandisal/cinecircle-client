@@ -7,10 +7,13 @@ interface GuestRouteProps {
 }
 
 export const GuestRoute: React.FC<GuestRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const location = useLocation();
 
   if (isAuthenticated) {
+    if (user && !user.onboarded) {
+      return <Navigate to="/onboarding" replace />;
+    }
     const origin = (location.state as any)?.from?.pathname || '/';
     return <Navigate to={origin} replace />;
   }

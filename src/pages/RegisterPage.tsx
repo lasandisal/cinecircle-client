@@ -17,7 +17,6 @@ import {
 import { useAppDispatch, useAppSelector } from '../hooks/useAppRedux';
 import { registerUser, clearError } from '../store/slices/authSlice';
 import { authService } from '../services/auth.service';
-import { userService } from '../services/user.service';
 
 export const RegisterPage: React.FC = () => {
   const [step, setStep] = useState<'info' | 'otp'>('info');
@@ -46,8 +45,10 @@ export const RegisterPage: React.FC = () => {
   useEffect(() => { dispatch(clearError()); }, [dispatch]);
 
   useEffect(() => {
-    if (isAuthenticated) navigate(redirectPath, { replace: true });
-  }, [isAuthenticated, navigate, redirectPath]);
+    // After OTP verification we send the member to onboarding ourselves.
+    // Redirecting here on isAuthenticated would dump them on `/` first.
+    if (isAuthenticated && step === 'info') navigate(redirectPath, { replace: true });
+  }, [isAuthenticated, navigate, redirectPath, step]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -100,17 +101,16 @@ export const RegisterPage: React.FC = () => {
     }
     try {
       const result = await dispatch(
-        registerUser({ name: name.trim(), email: email.trim(), password, otp: cleanOtp, bio: bio.trim() })
+        registerUser({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          otp: cleanOtp,
+          bio: bio.trim(),
+          profileImage: profileImage || undefined,
+        })
       );
       if (registerUser.fulfilled.match(result)) {
-        if (profileImage) {
-          try {
-            const avatar = await userService.uploadAvatar(profileImage);
-            await userService.updateProfile({ avatar });
-          } catch (uploadError) {
-            console.error('Profile image upload failed after registration:', uploadError);
-          }
-        }
         navigate('/onboarding', { replace: true });
       }
     } catch { /* Handled via Redux state */ }
