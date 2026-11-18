@@ -125,7 +125,88 @@ flowchart LR
 
 ---
 
-## 4. Project Structure
+## 4. Frontend Architecture & Engineering Practices
+
+The feature set is backed by deliberate non-functional choices: a minimal global store, cached reads with background revalidation, bounded network and DOM growth, small composable components, and route-level code splitting.
+
+### 4.1 State Management: Lift Only When Needed
+
+**Global store:** `src/store/index.ts`, `authSlice.ts`, `sessionSlice.ts`
+**Local state:** `TitleDetailPage.tsx`, `SoloRecommendationPage.tsx`, `SocialFeedPost.tsx`
+
+Putting everything into Redux causes unnecessary subscriptions and re-renders across parent components, so state is lifted only as far as it must travel.
+
+**Global state (Redux Toolkit) — strictly cross-cutting concerns:**
+- `auth`: the current user object and authentication status.
+- `session`: the real-time active decision room.
+
+**Local state (`useState`, `useRef`, `useMemo`) — everything else:**
+- Search inputs and filter dropdowns.
+- Spoiler-visibility toggles and modal open states.
+- Star-rating hover state and audio-preview playback state.
+- `useMemo` in `TitleDetailPage` pre-sorts and de-duplicates watch providers and soundtrack lists, so an expensive sort does not re-run when unrelated state (a hover, a modal) changes.
+
+```mermaid
+flowchart TD
+    A["Is the value read by unrelated routes?"] -->|"Yes"| B["Redux Toolkit slice"]
+    A -->|"No"| C["useState / useRef in the owning component"]
+    C --> D["Derived data? useMemo"]
+```
+
+This keeps re-renders inside the subtree that actually displays the value: typing in the navbar search does not re-render the feed, and opening a likers modal does not re-render the page.
+
+### 4.2 API Result Caching (SWR + In-Flight Deduplication)
+
+**Where:** `src/services/requestCache.ts` and `title.service.ts`
+
+Title catalogues, genre lists, and reviews rarely change second-to-second. Fetching them on every page transition wastes bandwidth and makes navigation feel sluggish.
+
+- **`cachedGet` with stale-while-revalidate:** entries are fresh for **30 s**, then serve stale for up to **120 s** while a background request refreshes them. Navigation therefore renders instantly from cache and silently converges on new data.
+- **In-flight de-duplication:** simultaneous callers of the same key share one promise from the `inFlight` map. Two components asking for `/api/titles/genres` at the same moment produce exactly **one** HTTP request.
+- **Auth-scope rotation:** because the JWT now lives in an HttpOnly cookie and is unreadable by JavaScript, the cache key uses a random per-session scope (`rotateAuthScope()`), not a token-derived one. `clearAuthScopedCache()` deletes the outgoing user's entries on logout, preventing the next account on the same browser from seeing the previous member's watch circles or join codes in `sessionStorage`.
+- **Targeted invalidation:** `invalidateCache(['/titles/'])` clears only the affected endpoints after a review, like, or poll vote, leaving unrelated cache entries warm.
+
+Public catalogue reads may persist to `sessionStorage` (`persist: true`); user-scoped responses stay in memory and are namespaced per auth scope.
+
+### 4.3 Pagination & Infinite Scrolling
+
+**Where:** `src/pages/HomePage.tsx` (with `FEED_PAGE_SIZE = 15`), backed by `title.controller.ts` offset paging.
+
+Loading hundreds of reviews or movie cards at once causes DOM bloat, high memory use, and slow queries.
+
+- **`IntersectionObserver` sentinel:** `loadMoreRef` sits at the bottom of the feed; when it nears the viewport the next page is fetched and appended. No scroll-event listener and no manual "load more" click.
+- **De-duplication on append:** offset paging can shift when new posts arrive between requests, so appended items are de-duplicated by id.
+- **Guarded against concurrent loads:** a `hasMore` flag plus a `loadingMore` guard prevents duplicate requests while one page is already in flight.
+- **Server-side clamping:** the backend caps `limit` at 50, so the client cannot request an unbounded page.
+
+### 4.4 Small, Focused Components & Micro-Interactions
+
+**Where:** `src/components/social/`, `src/components/common/`
+
+Breaking the UI into atomic units keeps each component readable and confines re-renders to small subtrees:
+
+- `StreamingBadge` — maps a provider to its deep-link watch URL; reused across cards and detail pages.
+- `ExternalRatings` — isolated formatting of IMDb and Rotten Tomatoes badges.
+- `SocialFeedPost` — a self-contained card owning its like count, embedded poll, likers modal, and replies modal.
+- `LikersModal` / `RepliesModal` (local to `SocialFeedPost.tsx`) — overlays that only mount and fetch their list when opened, so visitors who never click pay nothing.
+
+### 4.5 Route-Based Code Splitting (`React.lazy` + `<Suspense>`)
+
+Every page is loaded through a dynamic import in `src/routes/AppRoutes.tsx`, producing one chunk per route. A visitor who lands on `/login` never downloads the group-room, profile, or curator code.
+
+```tsx
+const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
+const TitleDetailPage = lazy(() => import('../pages/TitleDetailPage').then((m) => ({ default: m.TitleDetailPage })));
+const GroupSessionPage = lazy(() => import('../pages/GroupSessionPage').then((m) => ({ default: m.GroupSessionPage })));
+const ProfilePage = lazy(() => import('../pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+// ...all other pages
+```
+
+The routing tree is wrapped in a `<Suspense fallback={<PageLoadingFallback />}>` boundary: a dark-violet animated loader that matches the app's aesthetic while the next chunk streams in, avoiding both a blank screen and an unstyled flash.
+
+---
+
+## 5. Project Structure
 
 ```text
 cinecircle-fe/
@@ -160,10 +241,11 @@ cinecircle-fe/
 │   │   ├── OnboardingPage.tsx         # Taste calibration wizard
 │   │   ├── CuratorDashboardPage.tsx   # Admin synchronization & moderation
 │   │   └── NotFoundPage.tsx           # 404 error page
-│   ├── routes/                  # AppRoutes, ProtectedRoute & GuestRoute
+│   ├── routes/                  # AppRoutes (lazy chunks), ProtectedRoute & GuestRoute
 │   ├── services/                # Axios API services, request cache, and Socket client
 │   │   ├── api.ts
 │   │   ├── auth.service.ts
+│   │   ├── requestCache.ts        # cachedGet, SWR, in-flight dedup, auth scoping
 │   │   ├── session.service.ts
 │   │   ├── title.service.ts       # toggleLike, getCommentLikers, voteCommentPoll
 │   │   ├── user.service.ts        # searchPeople, getProfile, toggleFollow
@@ -187,9 +269,9 @@ cinecircle-fe/
 
 ---
 
-## 5. Environment Variables & Setup
+## 6. Environment Variables & Setup
 
-### 5.1 Environment Configuration
+### 6.1 Environment Configuration
 
 Create a `.env` file in the `cinecircle-fe` directory:
 
@@ -211,7 +293,7 @@ VITE_SOCKET_URL=http://localhost:5000
 > the cookie is `SameSite=None; Secure` because the client and API are on
 > different sites; in local development it is `SameSite=Lax`.
 
-### 5.2 Development & Build Commands
+### 6.2 Development & Build Commands
 
 1. **Install dependencies**:
    ```bash
@@ -240,7 +322,7 @@ VITE_SOCKET_URL=http://localhost:5000
 
 ---
 
-## 6. Key Application Routes
+## 7. Key Application Routes
 
 | Path | Access Level | Description |
 | :--- | :--- | :--- |
@@ -257,7 +339,7 @@ VITE_SOCKET_URL=http://localhost:5000
 
 ---
 
-## 7. Frontend-Backend API Integration
+## 8. Frontend-Backend API Integration
 
 | Feature | Frontend Service | Backend Endpoint | Redux State |
 | :--- | :--- | :--- | :--- |
