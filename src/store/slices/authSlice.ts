@@ -88,6 +88,29 @@ export const fetchCurrentUser = createAsyncThunk<
   }
 });
 
+/**
+ * Re-read the signed-in account from the API, bypassing the response cache.
+ *
+ * The session cookie is shared by every tab of a browser, so signing in as a
+ * different account in another tab silently changes who this tab is
+ * authenticated as. Calling this on focus keeps the rendered user (and the
+ * host-only controls that depend on it) aligned with the real cookie.
+ */
+export const refreshCurrentUser = createAsyncThunk<
+  User,
+  void,
+  { rejectValue: { message: string; status?: number } }
+>('auth/refreshMe', async (_, { rejectWithValue }) => {
+  try {
+    return await authService.getMe({ fresh: true });
+  } catch (err: any) {
+    return rejectWithValue({
+      message: err.response?.data?.error || 'Could not refresh session.',
+      status: err.response?.status,
+    });
+  }
+});
+
 export const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -163,6 +186,22 @@ export const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.isInitialized = true;
+    });
+
+    // Refresh current user (focus / visibility revalidation)
+    builder.addCase(refreshCurrentUser.fulfilled, (state, action) => {
+      state.user = action.payload;
+      state.isAuthenticated = true;
+      state.isInitialized = true;
+    });
+    builder.addCase(refreshCurrentUser.rejected, (state, action) => {
+      // Only sign the UI out when the server confirms the cookie is gone.
+      // A network hiccup must not drop a signed-in member.
+      if (action.payload?.status === 401 || action.payload?.status === 404) {
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isInitialized = true;
+      }
     });
   },
 });

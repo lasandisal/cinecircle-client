@@ -20,7 +20,8 @@ import {
   Star,
   Crown,
 } from 'lucide-react';
-import { useAppSelector } from '../store';
+import { useAppDispatch, useAppSelector } from '../store';
+import { refreshCurrentUser } from '../store/slices/authSlice';
 import { sessionService, type GroupSessionDetail } from '../services/session.service';
 import { socketService } from '../services/socket';
 import { titleService } from '../services/title.service';
@@ -35,12 +36,16 @@ export const GroupSessionPage: React.FC = () => {
   const initialCode = rawCode.replace(/^#/, '').toUpperCase().trim();
 
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const toast = useToast();
 
   const [activeSession, setActiveSession] = useState<GroupSessionDetail | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState(initialCode);
   const [loading, setLoading] = useState(false);
+  // True while POST /sessions/:id/lock is running (the AI pitch can take
+  // several seconds, so the host must not be able to fire it twice).
+  const [lockingSession, setLockingSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -163,21 +168,42 @@ export const GroupSessionPage: React.FC = () => {
 
     let cancelled = false;
     const roomSessionId = activeSession._id;
+    const joinCode = activeSession.joinCode;
 
-    const attach = async () => {
-      const connected = await socketService.whenConnected();
+    // (Re)join the socket room. A socket that reconnects after a network blip
+    // is no longer in any room, so this has to run again on every connect.
+    const joinRoom = async () => {
       if (cancelled) return;
-      setRealtimeConnected(connected);
-      if (!connected) return;
-
-      // Join the room so we receive broadcasts for this session.
-      const ack = await socketService.joinSession(activeSession.joinCode);
+      const ack = await socketService.joinSession(joinCode);
       if (cancelled) return;
       if (ack.ok && ack.sessionId) {
         joinedRoomIdRef.current = ack.sessionId;
-        if (ack.votes) setAllVotes(ack.votes);
+        if (ack.votes) {
+          setAllVotes(ack.votes);
+          syncMyVotes(ack.votes);
+        }
+        setRealtimeConnected(true);
+      } else {
+        setRealtimeConnected(false);
+      }
+    };
+
+    const attach = async () => {
+      const socket = socketService.connect();
+      if (!socket) {
+        setRealtimeConnected(false);
+        return;
       }
 
+      // Register connection lifecycle handlers before waiting. If the first
+      // attempt fails, Socket.IO keeps retrying; these fire on the eventual
+      // connect, so the room recovers instead of staying OFFLINE forever.
+      socketService.onConnect(() => void joinRoom());
+      socketService.onDisconnect(() => {
+        if (!cancelled) setRealtimeConnected(false);
+      });
+
+      // Data listeners. They stay attached across reconnects.
       socketService.onVoteUpdated((payload) => {
         if (payload.sessionId !== roomSessionId) return;
         setAllVotes(payload.votes || []);
@@ -195,7 +221,7 @@ export const GroupSessionPage: React.FC = () => {
 
       socketService.onParticipantJoined(() => {
         // Someone joined - refresh the participant list (cheap, once per event).
-        loadSessionByCode(activeSession.joinCode, true);
+        loadSessionByCode(joinCode, true);
       });
 
       socketService.onSessionFinalized((payload) => {
@@ -228,6 +254,15 @@ export const GroupSessionPage: React.FC = () => {
         toast.info('This circle was deleted by its host.');
         navigate('/');
       });
+
+      if (socket.connected) {
+        // Already connected (e.g. a reused socket) - onConnect won't fire.
+        await joinRoom();
+      } else {
+        const connected = await socketService.whenConnected();
+        if (cancelled) return;
+        setRealtimeConnected(connected);
+      }
     };
 
     attach();
@@ -242,6 +277,36 @@ export const GroupSessionPage: React.FC = () => {
       setRealtimeConnected(false);
     };
   }, [activeSession?._id, activeSession?.status, activeSession?.joinCode, isAuthenticated]);
+
+  /**
+   * Safety net for missed broadcasts: when the tab becomes active again (or
+   * the socket never connected), pull a fresh, uncached room snapshot. This
+   * keeps the vote tallies current without polling the write endpoint.
+   */
+  useEffect(() => {
+    if (!activeSession || activeSession.status !== 'open') return;
+    const joinCode = activeSession.joinCode;
+
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      sessionService
+        .fetchSessionSnapshot(joinCode)
+        .then(({ votes }) => {
+          if (votes) {
+            setAllVotes(votes);
+            syncMyVotes(votes);
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [activeSession?._id, activeSession?.status, activeSession?.joinCode, user?._id]);
 
   const syncMyVotes = (votes: any[]) => {
     if (!user) return;
@@ -526,16 +591,28 @@ export const GroupSessionPage: React.FC = () => {
   };
 
   const handleLockSession = async () => {
-    if (!activeSession) return;
-    setLoading(true);
+    if (!activeSession || lockingSession) return;
+    setLockingSession(true);
+    setError(null);
     try {
       const result = await sessionService.lockSession(activeSession._id);
       applyFinalizedPayload(result);
       setActiveSession(result.session as GroupSessionDetail);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Could not finalize session.');
+      const status = err.response?.status;
+      const message =
+        status === 403
+          ? err.response?.data?.error ||
+            'Only the room host can lock this decision. If you are the host, sign in again - another account may be signed in in this browser.'
+          : err.response?.data?.error || 'Could not finalize session.';
+      setError(message);
+      toast.error(message);
+      // A 403 here means the cookie authenticates a different account than the
+      // user shown in this tab. Re-read the identity so the room's controls
+      // (Invite / Delete / Lock) stop claiming this member is the host.
+      if (status === 403) void dispatch(refreshCurrentUser());
     } finally {
-      setLoading(false);
+      setLockingSession(false);
     }
   };
 
@@ -614,7 +691,10 @@ export const GroupSessionPage: React.FC = () => {
 
   // If inside an active session room:
   if (activeSession) {
-    const isHost = user && activeSession.host?._id === user._id;
+    const isHost = Boolean(
+      user &&
+        String(activeSession.creatorId || activeSession.host?._id || '') === String(user._id)
+    );
     const shortlistIds = new Set(
       (activeSession.shortlist || []).map((t: any) => (t._id || t.tmdbId || '').toString())
     );
@@ -914,11 +994,18 @@ export const GroupSessionPage: React.FC = () => {
               {/* Host Lock Decision Button */}
               {isHost && activeSession.status === 'open' && (
                 <button
+                  type="button"
                   onClick={handleLockSession}
-                  className="py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center gap-1.5 transition-all cursor-pointer"
+                  disabled={lockingSession}
+                  aria-busy={lockingSession}
+                  className="py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:shadow-none"
                 >
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Lock & Calculate Winner</span>
+                  {lockingSession ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trophy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{lockingSession ? 'Calculating Winner…' : 'Lock & Calculate Winner'}</span>
                 </button>
               )}
             </div>

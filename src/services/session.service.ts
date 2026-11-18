@@ -5,6 +5,7 @@ export interface GroupSessionDetail {
   _id: string;
   name?: string;
   joinCode: string;
+  creatorId: string;
   host: { _id: string; name: string; email: string; avatar?: string };
   participants: { _id: string; name: string; email: string; avatar?: string }[];
   constraints?: { maxRuntime?: number; moodFilter?: string };
@@ -44,6 +45,17 @@ export const sessionService = {
   async joinSession(joinCode: string): Promise<{ session: GroupSessionDetail; votes?: any[] }> {
     const res = await api.post('/sessions/join', { joinCode });
     invalidateCache(['/sessions/active', `/sessions/code/${joinCode}`]);
+    return res.data.data;
+  },
+
+  /**
+   * Read-only snapshot of a room (session + votes) that bypasses the GET cache.
+   * Used as a fallback when a realtime broadcast was missed.
+   */
+  async fetchSessionSnapshot(
+    joinCode: string
+  ): Promise<{ session: GroupSessionDetail; votes: any[] }> {
+    const res = await api.get(`/sessions/code/${encodeURIComponent(joinCode)}`);
     return res.data.data;
   },
 

@@ -47,8 +47,12 @@ export const authService = {
     await api.post('/auth/logout');
   },
 
-  async getMe(): Promise<User> {
-    const res = await cachedGet('/auth/me', undefined, { ttlMs: 60_000 });
+  async getMe(options: { fresh?: boolean } = {}): Promise<User> {
+    // `fresh` bypasses the cache so the UI can re-check which account the
+    // shared session cookie currently belongs to (see refreshCurrentUser).
+    const res = options.fresh
+      ? await api.get('/auth/me')
+      : await cachedGet('/auth/me', undefined, { ttlMs: 60_000 });
     return res.data.data.user;
   },
 

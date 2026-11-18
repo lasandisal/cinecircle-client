@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { api } from './api';
 
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
@@ -35,25 +36,88 @@ export interface PresencePayload {
 /**
  * Socket.IO client for CineCircle group rooms.
  *
- * The server authenticates the handshake with the same HttpOnly session
- * cookie used by REST, so the browser attaches it automatically. Every method
- * returns a promise and the GroupSessionPage keeps REST as a fallback if the
- * socket cannot connect.
+ * REST runs on the page origin (`/api` rewrite) so the HttpOnly session cookie
+ * is first-party. The socket server is a different vercel.app host, and cookies
+ * are scoped to the host that set them - the browser will not send the client
+ * domain's cookie to the API domain. So the handshake authenticates with a
+ * short-lived token fetched over same-origin REST (`/auth/socket-token`).
+ * Every method returns a promise and the GroupSessionPage keeps REST as a
+ * fallback if the socket cannot connect.
  */
 class SocketService {
   private socket: Socket | null = null;
+  private token: string | null = null;
+  private tokenExpiresAt = 0;
+  private tokenPromise: Promise<string | null> | null = null;
+  private authRetryDone = false;
+
+  /** Exchange the HttpOnly cookie for a short-lived socket handshake token. */
+  private async fetchToken(force = false): Promise<string | null> {
+    if (!force && this.token && Date.now() < this.tokenExpiresAt) {
+      return this.token;
+    }
+    if (this.tokenPromise) return this.tokenPromise;
+
+    this.tokenPromise = api
+      .get('/auth/socket-token')
+      .then((res) => {
+        const token: string | null = res.data?.data?.token ?? null;
+        const ttlSeconds = Number(res.data?.data?.expiresInSeconds) || 120;
+        this.token = token;
+        // Refresh a little before the server considers it expired.
+        this.tokenExpiresAt = Date.now() + (ttlSeconds - 60) * 1000;
+        return token;
+      })
+      .catch(() => null)
+      .finally(() => {
+        this.tokenPromise = null;
+      });
+
+    return this.tokenPromise;
+  }
+
+  private async authorizeAndConnect(socket: Socket, forceToken = false): Promise<void> {
+    const token = await this.fetchToken(forceToken);
+    // Fall back to cookie auth when no token is available (local dev, or a
+    // same-host deployment where the cookie is actually sent).
+    socket.auth = token ? { token } : {};
+    socket.connect();
+  }
 
   connect(): Socket | null {
-    if (this.socket && this.socket.connected) return this.socket;
+    if (this.socket) {
+      if (!this.socket.connected && !this.socket.active) {
+        void this.authorizeAndConnect(this.socket);
+      }
+      return this.socket;
+    }
 
-    this.socket = io(SOCKET_URL, {
-      autoConnect: true,
-      // Sends the HttpOnly session cookie on the WebSocket handshake.
+    const socket = io(SOCKET_URL, {
+      autoConnect: false,
+      // Still useful for local dev and any same-origin deployment.
       withCredentials: true,
       transports: ['websocket'],
     });
 
-    return this.socket;
+    this.socket = socket;
+
+    socket.on('connect', () => {
+      this.authRetryDone = false;
+    });
+
+    socket.on('connect_error', (error) => {
+      // An expired token is the one failure worth retrying automatically.
+      if (/auth|token|jwt/i.test(error.message) && !this.authRetryDone) {
+        this.authRetryDone = true;
+        this.token = null;
+        this.tokenExpiresAt = 0;
+        void this.authorizeAndConnect(socket, true);
+      }
+    });
+
+    void this.authorizeAndConnect(socket);
+
+    return socket;
   }
 
   getSocket(): Socket | null {
@@ -65,7 +129,7 @@ class SocketService {
   }
 
   /** Resolve once the socket is connected (or immediately rejected on error). */
-  whenConnected(timeoutMs = 4000): Promise<boolean> {
+  whenConnected(timeoutMs = 8000): Promise<boolean> {
     return new Promise((resolve) => {
       const socket = this.connect();
       if (!socket) return resolve(false);
@@ -154,6 +218,15 @@ class SocketService {
     this.socket?.on('vote:updated', handler);
   }
 
+  /** Fires on the first connection and after every automatic reconnect. */
+  onConnect(handler: () => void): void {
+    this.socket?.on('connect', handler);
+  }
+
+  onDisconnect(handler: () => void): void {
+    this.socket?.on('disconnect', handler);
+  }
+
   onShortlistUpdated(handler: (payload: { sessionId: string; session: any; votes?: any[] }) => void): void {
     this.socket?.on('shortlist:updated', handler);
   }
@@ -193,6 +266,12 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
     }
+    // Drop the socket credential with the connection so a later session in
+    // the same tab can never reuse the previous member's handshake token.
+    this.token = null;
+    this.tokenExpiresAt = 0;
+    this.tokenPromise = null;
+    this.authRetryDone = false;
   }
 }
 
