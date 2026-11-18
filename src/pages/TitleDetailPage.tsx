@@ -98,22 +98,24 @@ export const TitleDetailPage: React.FC = () => {
     fetchWatchlistStatus();
   }, [isAuthenticated, title?._id]);
 
+  const currentUserId = currentUser?._id || (currentUser as any)?.id || null;
+
   // Track which poll option the current user voted for (persists across refresh)
   const [myVotesMap, setMyVotesMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
-    if (!currentUser?._id || !title?.comments) return;
+    if (!currentUserId || !title?.comments) return;
     const votesMap = new Map<string, number>();
     title.comments.forEach((comment: TitleComment) => {
       if (comment.poll?.options) {
         const idx = comment.poll.options.findIndex((opt: any) =>
-          opt.votes.includes(currentUser._id)
+          Array.isArray(opt.votes) && opt.votes.some((v: string) => v?.toString() === currentUserId.toString())
         );
         if (idx >= 0) votesMap.set(comment._id, idx);
       }
     });
     setMyVotesMap(votesMap);
-  }, [currentUser?._id, title?.comments]);
+  }, [currentUserId, title?.comments]);
 
   const toggleLikeTitle = async () => {
     if (!requireAuth()) return;
@@ -724,19 +726,61 @@ export const TitleDetailPage: React.FC = () => {
 
   const handlePollVote = async (commentId: string, optionIndex: number) => {
     if (!requireAuth()) return;
+    const userId = currentUserId;
+    if (!userId) return;
+
+    const previousTitle = title;
+    const previousVotesMap = new Map(myVotesMap);
+
+    // 1. Optimistically update local myVotesMap for instant button highlight
+    setMyVotesMap((prev) => new Map(prev).set(commentId, optionIndex));
+
+    // 2. Optimistically update comment options so vote count & percent recalculate instantly (0ms)
+    if (title && title.comments) {
+      setTitle({
+        ...title,
+        comments: title.comments.map((c) => {
+          if (c._id !== commentId || !c.poll?.options) return c;
+          const newOptions = c.poll.options.map((opt, idx) => {
+            const rawVotes = Array.isArray(opt.votes) ? opt.votes : [];
+            const filteredVotes = rawVotes.filter((v: string) => v?.toString() !== userId.toString());
+            if (idx === optionIndex) {
+              filteredVotes.push(userId.toString());
+            }
+            return {
+              ...opt,
+              votes: filteredVotes,
+            };
+          });
+          return {
+            ...c,
+            poll: {
+              ...c.poll,
+              options: newOptions,
+            },
+          };
+        }),
+      });
+    }
 
     try {
-      // titleService.voteCommentPoll returns the full updated comment object directly
+      // Send to server
       const updatedComment = await titleService.voteCommentPoll(commentId, optionIndex);
       const updatedPoll = updatedComment?.poll;
-      if (title && title.comments && updatedPoll) {
-        setTitle({
-          ...title,
-          comments: title.comments.map((c) => (c._id === commentId ? { ...c, poll: updatedPoll } : c)),
+      if (updatedPoll) {
+        setTitle((prev) => {
+          if (!prev || !prev.comments) return prev;
+          return {
+            ...prev,
+            comments: prev.comments.map((c) => (c._id === commentId ? { ...c, poll: updatedPoll } : c)),
+          };
         });
       }
     } catch (err) {
       console.error('Failed to vote on poll:', err);
+      // Revert optimistic changes on failure
+      setTitle(previousTitle);
+      setMyVotesMap(previousVotesMap);
       toast.error('Could not submit your vote. Please try again.');
     }
   };
@@ -2163,12 +2207,12 @@ export const TitleDetailPage: React.FC = () => {
 
                   // Has current user reacted?
                   const userReaction = (comment.reactions || []).find(
-                    (r) => r.userId === currentUser?._id
+                    (r) => r.userId === currentUserId
                   );
 
                   // Calculate poll votes total
                   const totalPollVotes = comment.poll?.options.reduce(
-                    (acc, opt) => acc + opt.votes.length,
+                    (acc, opt) => acc + (Array.isArray(opt.votes) ? opt.votes.length : 0),
                     0
                   ) || 0;
 
@@ -2251,9 +2295,11 @@ export const TitleDetailPage: React.FC = () => {
 
                           <div className="space-y-2">
                             {comment.poll.options.map((opt, optIdx) => {
-                              const voteCount = opt.votes.length;
+                              const voteCount = Array.isArray(opt.votes) ? opt.votes.length : 0;
                               const percent = totalPollVotes > 0 ? Math.round((voteCount / totalPollVotes) * 100) : 0;
-                              const hasVotedThis = myVotesMap.get(comment._id) === optIdx;
+                              const hasVotedThis =
+                                myVotesMap.get(comment._id) === optIdx ||
+                                Boolean(currentUserId && Array.isArray(opt.votes) && opt.votes.some((v: string) => v?.toString() === currentUserId.toString()));
 
                               return (
                                 <button
@@ -2269,9 +2315,12 @@ export const TitleDetailPage: React.FC = () => {
                                   } ${!isAuthenticated ? 'opacity-60' : ''}`}
                                 >
                                   {/* Progress bar */}
-                                  <div className="absolute left-0 top-0 bottom-0 transition-all duration-300 ${
-                                    hasVotedThis ? 'bg-indigo-600/30' : 'bg-slate-700/30'
-                                  }" style={{ width: `${percent}%` }} />
+                                  <div
+                                    className={`absolute left-0 top-0 bottom-0 transition-all duration-300 ${
+                                      hasVotedThis ? 'bg-indigo-600/30' : 'bg-slate-700/30'
+                                    }`}
+                                    style={{ width: `${percent}%` }}
+                                  />
                                   <div className="relative z-10 flex items-center justify-between text-xs">
                                     <span className="font-semibold text-slate-200 flex items-center gap-1.5">
                                       {hasVotedThis && (
@@ -2282,9 +2331,11 @@ export const TitleDetailPage: React.FC = () => {
                                       )}
                                       {opt.optionText}
                                     </span>
-                                    <span className="text-[11px] font-bold ${
-                                      hasVotedThis ? 'text-indigo-400' : 'text-slate-400'
-                                    }">
+                                    <span
+                                      className={`text-[11px] font-bold ${
+                                        hasVotedThis ? 'text-indigo-400' : 'text-slate-400'
+                                      }`}
+                                    >
                                       {percent}% ({voteCount})
                                     </span>
                                   </div>

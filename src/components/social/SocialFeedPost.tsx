@@ -193,6 +193,13 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const [pollVoting, setPollVoting] = useState(false);
   const [localPoll, setLocalPoll] = useState<{ question: string; options: { text: string; votesCount: number; userHasVoted: boolean }[] } | null>(post.poll ?? null);
 
+  // Keep local poll in sync if parent feed data updates
+  useEffect(() => {
+    if (post.poll) {
+      setLocalPoll(post.poll);
+    }
+  }, [post.poll]);
+
   const totalPollVotes = localPoll?.options.reduce((sum, opt) => sum + opt.votesCount, 0) || 0;
 
   // Likers modal state
@@ -294,7 +301,31 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const handlePollVote = async (optIdx: number) => {
     if (pollVoting) return;
     if (!requireAuth()) return;
+
+    const previousPoll = localPoll;
+
+    // Optimistically update the poll UI instantly (0ms)
+    if (localPoll) {
+      setLocalPoll({
+        ...localPoll,
+        options: localPoll.options.map((opt, idx) => {
+          const wasVoted = opt.userHasVoted;
+          const isNowVoted = idx === optIdx;
+          let count = opt.votesCount;
+          if (wasVoted && !isNowVoted) count = Math.max(0, count - 1);
+          if (!wasVoted && isNowVoted) count += 1;
+          return {
+            ...opt,
+            votesCount: count,
+            userHasVoted: isNowVoted,
+          };
+        }),
+      });
+    }
+
     setPollVoting(true);
+    setPollError(null);
+
     try {
       // titleService.voteCommentPoll returns the full updated comment object directly
       const updatedComment = await titleService.voteCommentPoll(post.id, optIdx);
@@ -303,19 +334,22 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
       if (updatedPoll) {
         setLocalPoll({
           question: updatedPoll.question,
-          options: (updatedPoll.options || []).map((opt: any) => ({
-            text: opt.text || opt.optionText,
-            votesCount: opt.votesCount ?? opt.votes?.length ?? 0,
-            // The vote endpoint returns the RAW poll shape
-            // ({ optionText, votes: [userId, ...] }) - it has no
-            // `userHasVoted` field. Reading that field directly always
-            // returned undefined -> "Your vote" never highlighted until
-            // a page refresh. Derive it from the votes array instead.
-            userHasVoted: opt.userHasVoted ?? (currentUserId ? !!opt.votes?.includes(currentUserId) : false),
-          })),
+          options: (updatedPoll.options || []).map((opt: any, idx: number) => {
+            const votesList = Array.isArray(opt.votes) ? opt.votes : [];
+            const hasUserVoted = currentUserId
+              ? votesList.some((v: any) => v?.toString() === currentUserId.toString())
+              : idx === optIdx;
+            return {
+              text: opt.text || opt.optionText || '',
+              votesCount: votesList.length > 0 ? votesList.length : (opt.votesCount ?? 0),
+              userHasVoted: Boolean(hasUserVoted),
+            };
+          }),
         });
       }
     } catch (err: any) {
+      // Revert optimistic update on failure
+      if (previousPoll) setLocalPoll(previousPoll);
       setPollError(err?.response?.data?.error || err?.message || 'Failed to vote on poll');
     } finally {
       setPollVoting(false);

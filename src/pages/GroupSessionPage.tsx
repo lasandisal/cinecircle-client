@@ -310,12 +310,13 @@ export const GroupSessionPage: React.FC = () => {
 
   const syncMyVotes = (votes: any[]) => {
     if (!user) return;
+    const myUserId = (user._id || (user as any).id)?.toString();
     const myVotes: Record<string, 'yes' | 'no'> = {};
-    votes.forEach((v: any) => {
-      const vUserId = (v.user?._id || v.user)?.toString();
-      if (vUserId === user._id) {
-        const tId = (v.title?._id || v.title)?.toString();
-        myVotes[tId] = v.reaction;
+    (votes || []).forEach((v: any) => {
+      const vUserId = (v.user?._id || v.user?.id || v.userId || v.user)?.toString();
+      if (vUserId && vUserId === myUserId) {
+        const tId = (v.title?._id || v.title?.id || v.title || v.titleId)?.toString();
+        if (tId) myVotes[tId] = v.reaction;
       }
     });
     setVotedMap(myVotes);
@@ -525,18 +526,19 @@ export const GroupSessionPage: React.FC = () => {
     }
 
     const tIdStr = titleId.toString();
+    const myUserId = (user?._id || (user as any)?.id)?.toString();
 
     // Optimistically update personal vote
     setVotedMap((prev) => ({ ...prev, [tIdStr]: reaction }));
 
     // Optimistically update room-wide allVotes
-    if (user) {
+    if (user && myUserId) {
       setAllVotes((prev) => {
         const filtered = prev.filter(
           (v) =>
             !(
-              (v.user?._id || v.user)?.toString() === user._id &&
-              (v.title?._id || v.title)?.toString() === tIdStr
+              (v.user?._id || v.user?.id || v.userId || v.user)?.toString() === myUserId &&
+              (v.title?._id || v.title?.id || v.title || v.titleId)?.toString() === tIdStr
             )
         );
         return [
@@ -545,7 +547,9 @@ export const GroupSessionPage: React.FC = () => {
             _id: `temp-${Date.now()}`,
             session: activeSession._id,
             title: tIdStr,
-            user: { _id: user._id, name: user.name, avatar: user.avatar },
+            titleId: tIdStr,
+            user: { _id: myUserId, id: myUserId, name: user.name, avatar: user.avatar },
+            userId: myUserId,
             reaction,
             strength: voteStrength,
           },
@@ -1043,13 +1047,23 @@ export const GroupSessionPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {(activeSession.shortlist || []).map((title: any) => {
-              const tKey = (title._id || title.tmdbId || '').toString();
-              const myVote = votedMap[tKey];
+              const tKey = (title._id || title.id || title.tmdbId || '').toString();
+              const myVote =
+                votedMap[tKey] ||
+                (title._id && votedMap[title._id.toString()]) ||
+                (title.id && votedMap[title.id.toString()]) ||
+                (title.tmdbId && votedMap[title.tmdbId.toString()]);
 
               // Find all votes for this specific candidate
-              const titleVotes = allVotes.filter(
-                (v) => (v.title?._id || v.title)?.toString() === tKey
-              );
+              const titleVotes = allVotes.filter((v) => {
+                const vTitleId = (v.title?._id || v.title?.id || v.title || v.titleId)?.toString();
+                return (
+                  vTitleId === tKey ||
+                  (title._id && vTitleId === title._id.toString()) ||
+                  (title.id && vTitleId === title.id.toString()) ||
+                  (title.tmdbId && vTitleId === title.tmdbId.toString())
+                );
+              });
               const yesVotes = titleVotes.filter((v) => v.reaction === 'yes');
               const noVotes = titleVotes.filter((v) => v.reaction === 'no');
               const totalParticipantsCount = Math.max(1, uniqueParticipants.length);
@@ -1141,7 +1155,8 @@ export const GroupSessionPage: React.FC = () => {
                           >
                             {yesVotes.map((v: any, vIdx: number) => {
                               const u = v.user;
-                              const isMe = user && (u?._id || u) === user._id;
+                              const myUserId = (user?._id || (user as any)?.id)?.toString();
+                              const isMe = Boolean(user && myUserId && (u?._id || u?.id || u)?.toString() === myUserId);
                               const name = u?.name || (isMe ? user?.name : 'Participant');
                               const avatar = u?.avatar || (isMe ? user?.avatar : null);
                               return (
@@ -1161,7 +1176,8 @@ export const GroupSessionPage: React.FC = () => {
                             })}
                             {noVotes.map((v: any, vIdx: number) => {
                               const u = v.user;
-                              const isMe = user && (u?._id || u) === user._id;
+                              const myUserId = (user?._id || (user as any)?.id)?.toString();
+                              const isMe = Boolean(user && myUserId && (u?._id || u?.id || u)?.toString() === myUserId);
                               const name = u?.name || (isMe ? user?.name : 'Participant');
                               const avatar = u?.avatar || (isMe ? user?.avatar : null);
                               return (
