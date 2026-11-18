@@ -21,6 +21,7 @@ import { logout } from '../../store/slices/authSlice';
 import { titleService } from '../../services/title.service';
 import { userService } from '../../services/user.service';
 import { authService } from '../../services/auth.service';
+import { socketService } from '../../services/socket';
 import { clearAuthScopedCache } from '../../services/requestCache';
 import type { Title, CommunityPerson } from '../../types';
 import { StreamingBadge } from './StreamingBadge';
@@ -211,6 +212,8 @@ export const Navbar: React.FC = () => {
     } catch {
       // Already signed out / offline: local cleanup still has to happen.
     }
+    // Drop the socket and its short-lived handshake token with the session.
+    socketService.disconnect();
     dispatch(logout());
     // Drop this member's cached responses so the next person to sign in on
     // this browser cannot read their watch circles / join codes.

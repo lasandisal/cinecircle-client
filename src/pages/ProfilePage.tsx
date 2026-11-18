@@ -36,6 +36,8 @@ import {
 import { useAppSelector, useAppDispatch } from '../hooks/useAppRedux';
 import { updateUser, logout } from '../store/slices/authSlice';
 import { userService } from '../services/user.service';
+import { authService } from '../services/auth.service';
+import { socketService } from '../services/socket';
 import { clearAuthScopedCache } from '../services/requestCache';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useToast } from '../hooks/useToast';
@@ -318,7 +320,17 @@ export const ProfilePage: React.FC = () => {
 
   // Sign out lives here too: on mobile the navbar avatar menu is hidden in
   // favour of the BottomNav Profile tab, so this is the member's only exit.
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      // Clears the HttpOnly session cookie on the server. Without this the
+      // browser stays authenticated even though the UI looks signed out.
+      await authService.logout();
+    } catch {
+      // Already signed out / offline: local cleanup still has to happen.
+    }
+    // The socket carries its own short-lived handshake token - drop it with
+    // the session so the next account never inherits this connection.
+    socketService.disconnect();
     dispatch(logout());
     // Drop this member's cached responses so the next person to sign in on
     // this browser cannot read their watch circles / join codes.
