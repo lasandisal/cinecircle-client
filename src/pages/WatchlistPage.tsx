@@ -65,6 +65,7 @@ export const WatchlistPage: React.FC = () => {
   }, [isAuthenticated, filter]);
 
   const handleToggleWatched = async (item: WatchlistItem) => {
+    if (actionLoading) return;
     try {
       setActionLoading(item._id);
       const updated = await watchlistService.markAsWatched(item._id, !item.watched);
@@ -82,6 +83,7 @@ export const WatchlistPage: React.FC = () => {
   };
 
   const handleRate = async (item: WatchlistItem, rating: number) => {
+    if (actionLoading) return;
     try {
       setActionLoading(item._id);
       const updated = await watchlistService.rateTitle(item._id, rating);
@@ -100,6 +102,7 @@ export const WatchlistPage: React.FC = () => {
   };
 
   const handleRemove = async (item: WatchlistItem) => {
+    if (actionLoading) return;
     try {
       setActionLoading(item._id);
       await watchlistService.removeFromWatchlist(item._id);
@@ -293,7 +296,7 @@ export const WatchlistPage: React.FC = () => {
                       <button
                         onClick={() => handleRemove(item)}
                         disabled={actionLoading === item._id}
-                        className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                        className="text-slate-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Remove from watchlist"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -339,7 +342,7 @@ export const WatchlistPage: React.FC = () => {
                     <button
                       onClick={() => handleToggleWatched(item)}
                       disabled={actionLoading === item._id}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         item.watched
                           ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -356,7 +359,7 @@ export const WatchlistPage: React.FC = () => {
                           key={star}
                           onClick={() => handleRate(item, star)}
                           disabled={actionLoading === item._id}
-                          className="p-0.5 hover:scale-125 transition-transform"
+                          className="p-0.5 hover:scale-125 transition-transform disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                           title={`Rate ${star} star${star > 1 ? 's' : ''}`}
                         >
                           <Star

@@ -9,6 +9,7 @@ import {
 } from '../../services/auth.service';
 import { userService } from '../../services/user.service';
 import { rotateAuthScope } from '../../services/requestCache';
+import { readAuthHint } from '../../services/authHint';
 
 interface AuthState {
   user: User | null;
@@ -18,13 +19,18 @@ interface AuthState {
   isInitialized: boolean;
 }
 
+// Last known profile, used only so the first paint after a refresh shows the
+// member UI instead of a guest navbar that flips a moment later. The HttpOnly
+// cookie is still the real credential and /auth/me revalidates it on mount.
+const hintedUser = readAuthHint();
+
 const initialState: AuthState = {
-  user: null,
-  // The session cookie is HttpOnly, so JavaScript cannot inspect it. The app
-  // starts as a guest and asks /auth/me (cookie included) to find out more.
-  isAuthenticated: false,
+  user: hintedUser,
+  isAuthenticated: Boolean(hintedUser),
   loading: false,
   error: null,
+  // `isInitialized` stays false until the server confirms the session, so
+  // protected routes never render on the strength of the local hint alone.
   isInitialized: false,
 };
 
@@ -78,13 +84,18 @@ export const loginUser = createAsyncThunk<
 export const fetchCurrentUser = createAsyncThunk<
   User,
   void,
-  { rejectValue: string }
+  { rejectValue: { message: string; status?: number } }
 >('auth/fetchMe', async (_, { rejectWithValue }) => {
   try {
-    return await authService.getMe();
+    // Always bypass the response cache here. Identity is the one thing that
+    // must never be served stale: the hint used for the first paint can be a
+    // moment old, so the bootstrap call is the authoritative check.
+    return await authService.getMe({ fresh: true });
   } catch (err: any) {
-    const message = err.response?.data?.error || 'Session expired. Please sign in again.';
-    return rejectWithValue(message);
+    return rejectWithValue({
+      message: err.response?.data?.error || 'Session expired. Please sign in again.',
+      status: err.response?.status,
+    });
   }
 });
 
@@ -180,11 +191,18 @@ export const authSlice = createSlice({
       state.isAuthenticated = true;
       state.isInitialized = true;
     });
-    builder.addCase(fetchCurrentUser.rejected, (state) => {
-      // No valid cookie (guest, or the session expired).
+    builder.addCase(fetchCurrentUser.rejected, (state, action) => {
       state.loading = false;
-      state.user = null;
-      state.isAuthenticated = false;
+      const status = action.payload?.status;
+
+      // Only clear the session when the server explicitly rejected the cookie.
+      // A cold-start network error or a 5xx must not sign a member out.
+      if (status === 401 || status === 403 || status === 404) {
+        state.user = null;
+        state.isAuthenticated = false;
+      }
+
+      // Either way the bootstrap is over, so protected routes stop spinning.
       state.isInitialized = true;
     });
 

@@ -198,6 +198,7 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
   // bar to 100% ("Analyzing...", "Cross-referencing...", "CineTaste Matrix
   // successfully calibrated!") with no computation behind any of it.
   const handleStartCalibration = useCallback(async () => {
+    if (submitting) return;
     setStep(5);
     setSubmitting(true);
     setCalibrationProgress(10);
@@ -261,7 +262,7 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
       setCalibrationPhase('Error saving preferences. Please try again.');
       setSubmitting(false);
     }
-  }, [selectedGenres, selectedTitles, selectedExclusions, selectedServices, dispatch]);
+  }, [selectedGenres, selectedTitles, selectedExclusions, selectedServices, dispatch, submitting]);
 
   const handleFinish = () => {
     if (onComplete) {
@@ -760,7 +761,7 @@ export const TasteOnboardingWizard: React.FC<TasteOnboardingWizardProps> = ({
                 type="button"
                 onClick={handleStartCalibration}
                 disabled={submitting}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-violet-600"
               >
                 <Sparkle className="w-4 h-4 fill-white" />
                 <span>Calibrate Taste Matrix</span>

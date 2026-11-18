@@ -126,7 +126,7 @@ export const NotificationsDropdown: React.FC = () => {
   };
 
   const respondToConnectionRequest = async (notification: NotificationItem, status: 'accepted' | 'rejected') => {
-    if (!notification.requestId) return;
+    if (!notification.requestId || requestActionId) return;
 
     try {
       setRequestActionId(notification.id);
@@ -142,7 +142,7 @@ export const NotificationsDropdown: React.FC = () => {
   };
 
   const respondToSessionInvitation = async (notification: NotificationItem, status: 'accepted' | 'rejected') => {
-    if (!notification.invitationId) return;
+    if (!notification.invitationId || requestActionId) return;
 
     try {
       setRequestActionId(notification.id);

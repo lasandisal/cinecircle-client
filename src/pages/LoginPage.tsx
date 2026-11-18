@@ -59,6 +59,7 @@ export const LoginPage: React.FC = () => {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLocalError(null);
     if (!email.trim()) { setLocalError('Please enter your email address.'); return; }
     if (!password) { setLocalError('Please enter your password.'); return; }
@@ -70,6 +71,7 @@ export const LoginPage: React.FC = () => {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sendingOtp) return;
     setLocalError(null);
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
       setLocalError('Please enter a valid email address.');
@@ -89,6 +91,7 @@ export const LoginPage: React.FC = () => {
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLocalError(null);
     if (!otp.trim() || otp.trim().length < 6) {
       setLocalError('Please enter the 6-digit verification code.');
@@ -319,7 +322,7 @@ export const LoginPage: React.FC = () => {
                           type="button"
                           onClick={handleSendOtp as any}
                           disabled={sendingOtp}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1"
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${sendingOtp ? 'animate-spin' : ''}`} />
                           <span>Resend code</span>

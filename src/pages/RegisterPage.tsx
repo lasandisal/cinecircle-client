@@ -58,6 +58,7 @@ export const RegisterPage: React.FC = () => {
 
   const handleProceedToOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sendingOtp) return;
     setLocalError(null);
 
     if (!name.trim()) { setLocalError('Please enter your full name or handle.'); return; }
@@ -93,6 +94,7 @@ export const RegisterPage: React.FC = () => {
 
   const handleVerifyAndRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLocalError(null);
     const cleanOtp = otp.trim();
     if (!cleanOtp || cleanOtp.length < 6) {
@@ -354,7 +356,7 @@ export const RegisterPage: React.FC = () => {
                       type="button"
                       onClick={handleResendOtp}
                       disabled={sendingOtp}
-                      className="text-xs text-violet-400 hover:text-violet-300 font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      className="text-xs text-violet-400 hover:text-violet-300 font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${sendingOtp ? 'animate-spin' : ''}`} />
                       <span>Resend code</span>

@@ -29,6 +29,7 @@ import { StreamingBadge } from './StreamingBadge';
 export const Navbar: React.FC = () => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,6 +206,8 @@ export const Navbar: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
     setProfileDropdownOpen(false);
     try {
       // Clears the HttpOnly cookie on the server.
@@ -219,6 +222,7 @@ export const Navbar: React.FC = () => {
     // this browser cannot read their watch circles / join codes.
     clearAuthScopedCache();
     navigate('/login');
+    setSigningOut(false);
   };
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
@@ -644,10 +648,11 @@ export const Navbar: React.FC = () => {
                   <div className="pt-1 border-t border-slate-800">
                     <button
                       onClick={handleSignOut}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                      disabled={signingOut}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <LogOut className="w-4 h-4 text-rose-400" />
-                      <span>Sign Out</span>
+                      <span>{signingOut ? 'Signing out…' : 'Sign Out'}</span>
                     </button>
                   </div>
                 </div>

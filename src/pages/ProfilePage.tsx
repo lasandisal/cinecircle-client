@@ -94,6 +94,7 @@ export const ProfilePage: React.FC = () => {
   const graphList: ConnectionPerson[] = graph?.connections ?? [];
 
   const openConnections = async () => {
+    if (graphLoading) return;
     setConnectionsOpen(true);
     if (graph) return;
     setGraphLoading(true);
@@ -223,7 +224,7 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleAvatarUpload = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || isUploadingAvatar) return;
     setAvatarUploadError(null);
 
     if (!file.type.startsWith('image/')) {
@@ -257,6 +258,7 @@ export const ProfilePage: React.FC = () => {
   // Save edited profile
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingProfile) return;
     try {
       setIsSavingProfile(true);
       const updated = await userService.updateProfile({
@@ -605,7 +607,7 @@ export const ProfilePage: React.FC = () => {
                     <button
                       onClick={handleConnectionRequest}
                       disabled={connectionLoading || profile.connectionStatus === 'pending_sent' || profile.connectionStatus === 'accepted'}
-                      className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 ${
+                      className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${
                         profile.connectionStatus === 'accepted' || profile.connectionStatus === 'pending_sent'
                           ? 'bg-slate-800 text-slate-300 border border-slate-700'
                           : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'

@@ -391,6 +391,7 @@ export const HomePage: React.FC = () => {
       : posts;
 
   const refreshAll = () => {
+    if (refreshing) return;
     loadData(true);
     loadTrending();
   };
@@ -506,7 +507,7 @@ export const HomePage: React.FC = () => {
                 <button
                   onClick={refreshAll}
                   disabled={refreshing}
-                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Refresh"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-indigo-400' : ''}`} />
@@ -572,7 +573,7 @@ export const HomePage: React.FC = () => {
                 <button
                   onClick={refreshAll}
                   disabled={refreshing}
-                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Refresh feed"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-indigo-400' : ''}`} />

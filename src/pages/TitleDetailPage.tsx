@@ -39,6 +39,7 @@ import { ExternalRatings } from '../components/common/ExternalRatings';
 import { useToast } from '../hooks/useToast';
 import { useAppSelector } from '../hooks/useAppRedux';
 import { useRequireAuth } from '../hooks/useRequireAuth';
+import { usePendingActions } from '../hooks/usePendingActions';
 
 // Available Facebook/Social Emoji Reactions
 const EMOJI_REACTIONS: { key: ReactionEmoji; emoji: string; label: string }[] = [
@@ -71,6 +72,9 @@ export const TitleDetailPage: React.FC = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [watchlistActionLoading, setWatchlistActionLoading] = useState(false);
+  // Per-target guards so a double-click cannot fire the same mutation twice
+  // (e.g. two likes, two votes, two reactions on the same comment).
+  const { begin: beginAction, end: endAction, isPending } = usePendingActions();
 
   // Sync real title likes and user like status from title data
   useEffect(() => {
@@ -121,6 +125,7 @@ export const TitleDetailPage: React.FC = () => {
     if (!requireAuth()) return;
     const titleTargetId = title?._id || (title as any)?.id || id;
     if (!titleTargetId) return;
+    if (!beginAction('title:like')) return;
 
     const prevLiked = isLiked;
     const prevCount = likeCount;
@@ -140,12 +145,15 @@ export const TitleDetailPage: React.FC = () => {
       setIsLiked(prevLiked);
       setLikeCount(prevCount);
       toast.error(err?.response?.data?.error || err?.message || 'Could not update like status');
+    } finally {
+      endAction('title:like');
     }
   };
 
   const toggleWatchedTitle = async () => {
     if (!requireAuth()) return;
     if (!title?._id) return;
+    if (!beginAction('title:watched')) return;
     const nextWatched = !isWatched;
     try {
       setIsWatched(nextWatched);
@@ -190,12 +198,15 @@ export const TitleDetailPage: React.FC = () => {
       console.error('Failed to update watched status:', err);
       // Revert optimistic state on failure so the UI reflects reality
       setIsWatched(!nextWatched);
+    } finally {
+      endAction('title:watched');
     }
   };
 
   const handleRateTitle = async (star: number) => {
     if (!requireAuth()) return;
     if (!title?._id) return;
+    if (!beginAction('title:rate')) return;
     try {
       setUserRating(star);
       setIsWatched(true);
@@ -234,12 +245,15 @@ export const TitleDetailPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to rate title:', err);
       toast.error('Could not save your rating. Please try again.');
+    } finally {
+      endAction('title:rate');
     }
   };
 
   const handleToggleWatchlist = async () => {
     if (!requireAuth()) return;
     if (!title?._id) return;
+    if (watchlistActionLoading) return;
     try {
       setWatchlistActionLoading(true);
       if (isInWatchlist) {
@@ -310,6 +324,7 @@ export const TitleDetailPage: React.FC = () => {
   const handleAddSoundtrackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAddSong || (!title?._id && !id)) return;
+    if (submittingAddSong) return;
     setSubmittingAddSong(true);
     try {
       const payload = {
@@ -385,6 +400,7 @@ export const TitleDetailPage: React.FC = () => {
   }, [id]);
 
   const handleSelectSeason = async (seasonNum: number) => {
+    if (loadingSeasonEpisodes) return;
     setSelectedSeason(seasonNum);
     setExpandedEpisode(null);
 
@@ -467,6 +483,7 @@ export const TitleDetailPage: React.FC = () => {
 
   const handleReportComment = async (commentId: string) => {
     if (!requireAuth()) return;
+    if (reportingCommentId) return;
     setReportingCommentId(commentId);
     setReportNotice(null);
     try {
@@ -627,7 +644,7 @@ export const TitleDetailPage: React.FC = () => {
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !newComment.trim() || !isAuthenticated) return;
+    if (!id || !newComment.trim() || !isAuthenticated || submittingComment) return;
 
     setSubmittingComment(true);
     try {
@@ -670,7 +687,7 @@ export const TitleDetailPage: React.FC = () => {
   };
 
   const handlePostReply = async (parentCommentId: string) => {
-    if (!id || !replyText.trim() || !isAuthenticated) return;
+    if (!id || !replyText.trim() || !isAuthenticated || submittingReply) return;
 
     setSubmittingReply(true);
     try {
@@ -709,6 +726,7 @@ export const TitleDetailPage: React.FC = () => {
 
   const handleReaction = async (commentId: string, emoji: ReactionEmoji) => {
     if (!requireAuth()) return;
+    if (!beginAction(`reaction:${commentId}`)) return;
     setActiveReactionPicker(null);
 
     try {
@@ -721,6 +739,8 @@ export const TitleDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to react:', err);
+    } finally {
+      endAction(`reaction:${commentId}`);
     }
   };
 
@@ -728,6 +748,7 @@ export const TitleDetailPage: React.FC = () => {
     if (!requireAuth()) return;
     const userId = currentUserId;
     if (!userId) return;
+    if (!beginAction(`poll:${commentId}`)) return;
 
     const previousTitle = title;
     const previousVotesMap = new Map(myVotesMap);
@@ -782,11 +803,14 @@ export const TitleDetailPage: React.FC = () => {
       setTitle(previousTitle);
       setMyVotesMap(previousVotesMap);
       toast.error('Could not submit your vote. Please try again.');
+    } finally {
+      endAction(`poll:${commentId}`);
     }
   };
 
   const handleLikeComment = async (commentId: string, currentlyLiked: boolean) => {
     if (!requireAuth()) return;
+    if (!beginAction(`comment-like:${commentId}`)) return;
 
     // Optimistic update
     setTitle((prev) => {
@@ -840,12 +864,15 @@ export const TitleDetailPage: React.FC = () => {
         return { ...prev, comments: revertComment(prev.comments || []) };
       });
       console.error('Failed to toggle comment like:', err);
+    } finally {
+      endAction(`comment-like:${commentId}`);
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
     if (!requireAuth()) return;
     if (!window.confirm('Delete this comment? This cannot be undone.')) return;
+    if (!beginAction(`comment-delete:${commentId}`)) return;
 
     try {
       await titleService.deleteComment(commentId);
@@ -864,6 +891,8 @@ export const TitleDetailPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to delete comment:', err);
       toast.error(err?.response?.data?.error || 'Could not delete this comment. Please try again.');
+    } finally {
+      endAction(`comment-delete:${commentId}`);
     }
   };
 
@@ -1011,8 +1040,9 @@ export const TitleDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={toggleWatchedTitle}
+                disabled={isPending('title:watched')}
                 title={isAuthenticated ? undefined : 'Sign in to track what you watch'}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   isWatched
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
                     : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:bg-slate-800'
@@ -1028,8 +1058,9 @@ export const TitleDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={toggleLikeTitle}
+                disabled={isPending('title:like')}
                 title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Sign in to like'}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   isLiked
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/20'
                     : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:bg-slate-800'
@@ -1043,20 +1074,21 @@ export const TitleDetailPage: React.FC = () => {
 
               {/* Interactive Star Rating */}
               <div
-                className={`flex items-center gap-1 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 ${
+                className={`flex items-center gap-1 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 transition-opacity ${
                   !isAuthenticated ? 'opacity-60' : ''
-                }`}
+                } ${isPending('title:rate') ? 'opacity-50' : ''}`}
               >
                 <span className="text-[11px] text-slate-400 mr-1.5">Your Rating:</span>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
+                    disabled={isPending('title:rate')}
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => handleRateTitle(star)}
                     title={isAuthenticated ? `Rate ${star} star${star === 1 ? '' : 's'}` : 'Sign in to rate'}
-                    className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                    className="p-0.5 hover:scale-110 transition-transform cursor-pointer disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     <Star
                       className={`w-4 h-4 ${
@@ -1089,7 +1121,7 @@ export const TitleDetailPage: React.FC = () => {
                 onClick={handleToggleWatchlist}
                 disabled={watchlistActionLoading}
                 title={isAuthenticated ? undefined : 'Sign in to save this title'}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-xs transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   isInWatchlist
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10'
                     : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-white'
@@ -1282,7 +1314,8 @@ export const TitleDetailPage: React.FC = () => {
                       key={season.seasonNumber}
                       type="button"
                       onClick={() => handleSelectSeason(season.seasonNumber)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      disabled={loadingSeasonEpisodes}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                         selectedSeason === season.seasonNumber
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                           : 'bg-slate-950/80 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -2254,7 +2287,8 @@ export const TitleDetailPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDeleteComment(comment._id)}
-                            className="text-[10px] text-slate-500 hover:text-rose-400 px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+                            disabled={isPending(`comment-delete:${comment._id}`)}
+                            className="text-[10px] text-slate-500 hover:text-rose-400 px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Delete your comment"
                           >
                             <X className="w-3 h-3" />
@@ -2305,14 +2339,16 @@ export const TitleDetailPage: React.FC = () => {
                                 <button
                                   key={optIdx}
                                   type="button"
-                                  disabled={hasVotedThis}
+                                  disabled={hasVotedThis || isPending(`poll:${comment._id}`)}
                                   onClick={() => handlePollVote(comment._id, optIdx)}
                                   title={!isAuthenticated ? 'Sign in to vote' : undefined}
-                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
+                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 disabled:cursor-not-allowed ${
                                     hasVotedThis
                                       ? 'border-indigo-500 bg-indigo-950/50'
                                       : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
-                                  } ${!isAuthenticated ? 'opacity-60' : ''}`}
+                                  } ${!isAuthenticated ? 'opacity-60' : ''} ${
+                                    isPending(`poll:${comment._id}`) && !hasVotedThis ? 'opacity-50' : ''
+                                  }`}
                                 >
                                   {/* Progress bar */}
                                   <div
@@ -2359,8 +2395,9 @@ export const TitleDetailPage: React.FC = () => {
                                 key={emojiKey}
                                 type="button"
                                 onClick={() => handleReaction(comment._id, emojiKey as ReactionEmoji)}
+                                disabled={isPending(`reaction:${comment._id}`)}
                                 title={isAuthenticated ? undefined : 'Sign in to react'}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                                   isMyReaction
                                     ? 'bg-indigo-600/25 border-indigo-500/50 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -2379,7 +2416,8 @@ export const TitleDetailPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleLikeComment(comment._id, !!comment.likedByMe)}
-                            className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                            disabled={isPending(`comment-like:${comment._id}`)}
+                            className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               comment.likedByMe
                                 ? 'text-rose-400'
                                 : 'text-slate-400 hover:text-rose-400'
@@ -2423,7 +2461,8 @@ export const TitleDetailPage: React.FC = () => {
                                     key={item.key}
                                     type="button"
                                     onClick={() => handleReaction(comment._id, item.key)}
-                                    className="text-base hover:scale-130 transition-transform p-0.5 cursor-pointer"
+                                    disabled={isPending(`reaction:${comment._id}`)}
+                                    className="text-base hover:scale-130 transition-transform p-0.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                                     title={item.label}
                                   >
                                     {item.emoji}
@@ -2554,7 +2593,8 @@ export const TitleDetailPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteComment(reply._id)}
-                                    className="text-[9px] text-slate-500 hover:text-rose-400 px-1 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+                                    disabled={isPending(`comment-delete:${reply._id}`)}
+                                    className="text-[9px] text-slate-500 hover:text-rose-400 px-1 py-0.5 rounded hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Delete your reply"
                                   >
                                     <X className="w-2.5 h-2.5" />

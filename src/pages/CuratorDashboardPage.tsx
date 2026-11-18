@@ -71,6 +71,7 @@ export const CuratorDashboardPage: React.FC = () => {
   }, [tab, loadQueue]);
 
   const moderate = async (commentId: string, action: 'hide' | 'dismiss') => {
+    if (actingOn) return;
     setActingOn(commentId);
     setQueueError(null);
     try {
@@ -89,6 +90,7 @@ export const CuratorDashboardPage: React.FC = () => {
 
   const submitSoundtrack = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (stSubmitting) return;
     if (!stTitleName.trim() || !stSongName.trim() || !stArtist.trim()) return;
 
     setStSubmitting(true);

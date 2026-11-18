@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { titleService } from '../../services/title.service';
 import { useAppSelector } from '../../hooks/useAppRedux';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { usePendingActions } from '../../hooks/usePendingActions';
 
 export interface FeedPostProps {
   id: string;
@@ -170,6 +171,7 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
   const currentUser = useAppSelector((state) => state.auth.user);
   const currentUserId = currentUser?._id || (currentUser as any)?.id || null;
   const { isAuthenticated, requireAuth } = useRequireAuth();
+  const { begin, end, isPending } = usePendingActions();
 
   // Sync liked state from backend prop when it changes (e.g. after parent re-render)
   useEffect(() => {
@@ -214,36 +216,42 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
 
   const toggleLike = async () => {
     if (!requireAuth()) return;
+    const key = `like:${post.id}`;
+    if (!begin(key)) return;
     setLikeError(null);
-    if (liked) {
-      // Already liked -> unlike
-      setLiked(false);
-      setLikes(likes - 1);
+    try {
+      if (liked) {
+        // Already liked -> unlike
+        setLiked(false);
+        setLikes(likes - 1);
+        try {
+          const result = await titleService.toggleLike(post.id);
+          setLikes(result.likesCount);
+        } catch (err: any) {
+          console.error('Failed to unlike comment:', err);
+          setLikeError(err?.response?.data?.error || err?.message || 'Failed to unlike');
+          // Revert
+          setLiked(true);
+          setLikes(likes);
+        }
+        return;
+      }
+
+      // Not liked -> like
+      setLiked(true);
+      setLikes(likes + 1);
       try {
         const result = await titleService.toggleLike(post.id);
         setLikes(result.likesCount);
       } catch (err: any) {
-        console.error('Failed to unlike comment:', err);
-        setLikeError(err?.response?.data?.error || err?.message || 'Failed to unlike');
+        console.error('Failed to like comment:', err);
+        setLikeError(err?.response?.data?.error || err?.message || 'Failed to like');
         // Revert
-        setLiked(true);
+        setLiked(false);
         setLikes(likes);
       }
-      return;
-    }
-
-    // Not liked -> like
-    setLiked(true);
-    setLikes(likes + 1);
-    try {
-      const result = await titleService.toggleLike(post.id);
-      setLikes(result.likesCount);
-    } catch (err: any) {
-      console.error('Failed to like comment:', err);
-      setLikeError(err?.response?.data?.error || err?.message || 'Failed to like');
-      // Revert
-      setLiked(false);
-      setLikes(likes);
+    } finally {
+      end(key);
     }
   };
 
@@ -467,14 +475,16 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
                     <button
                       key={optIdx}
                       type="button"
-                      disabled={hasVotedThis}
+                      disabled={hasVotedThis || pollVoting}
                       onClick={() => handlePollVote(optIdx)}
                       title={!isAuthenticated ? 'Sign in to vote' : undefined}
-                      className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 ${
+                      className={`w-full relative overflow-hidden rounded-xl p-2.5 border text-left transition-all duration-200 disabled:cursor-not-allowed ${
                         hasVotedThis
                           ? 'border-indigo-500 bg-indigo-950/50'
                           : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 hover:bg-slate-900'
-                      } ${!isAuthenticated ? 'opacity-60' : ''}`}
+                      } ${!isAuthenticated ? 'opacity-60' : ''} ${
+                        pollVoting && !hasVotedThis ? 'opacity-50' : ''
+                      }`}
                     >
                       {/* Progress bar */}
                       <div className="absolute left-0 top-0 bottom-0 transition-all duration-300 ${
@@ -519,7 +529,8 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
               e.stopPropagation();
               void toggleLike();
             }}
-            className={`flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer ${
+            disabled={isPending(`like:${post.id}`)}
+            className={`flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${
               !isAuthenticated
                 ? 'text-slate-500 opacity-50'
                 : liked

@@ -204,6 +204,22 @@ const ProfilePage = lazy(() => import('../pages/ProfilePage').then((m) => ({ def
 
 The routing tree is wrapped in a `<Suspense fallback={<PageLoadingFallback />}>` boundary: a dark-violet animated loader that matches the app's aesthetic while the next chunk streams in, avoiding both a blank screen and an unstyled flash.
 
+### 4.6 First-Paint Auth Hydration (No Guest Flash)
+
+**Where:** `src/services/authHint.ts`, `src/store/index.ts`, `src/store/slices/authSlice.ts`
+
+Because the session JWT lives in an **HttpOnly** cookie, JavaScript cannot know on the first render whether the visitor is signed in. The naive result is a flash: the navbar paints **Sign In / Get Started** and the home page paints the guest hero, then `/auth/me` answers and the UI switches to the member view — which looks like being logged out and immediately logged back in.
+
+The fix is a non-sensitive *display hint* used only for the first paint:
+
+1. `readAuthHint()` synchronously seeds the auth slice from `localStorage` (`user` + `isAuthenticated`), so the very first render already shows the member navbar and feed layout.
+2. `isInitialized` stays `false`, so `<ProtectedRoute>` still waits for the server before rendering any private page.
+3. The bootstrap call always uses `getMe({ fresh: true })` — identity is never served from the response cache.
+4. `store.subscribe(...)` mirrors every auth change (login, account switch, profile update, logout) to the hint and **clears it on logout or a 401**, so the next cold start cannot show a signed-out member.
+5. A non-auth failure (network blip, 5xx) no longer signs the UI out; only an explicit `401/403/404` clears the session.
+
+**Security note:** the hint contains only the public profile the UI already renders (name, avatar, role, …). The JWT is never stored there and remains unreadable by page scripts; the API is still the authority and the hint self-corrects within one request.
+
 ---
 
 ## 5. Project Structure
@@ -245,6 +261,7 @@ cinecircle-fe/
 │   ├── services/                # Axios API services, request cache, and Socket client
 │   │   ├── api.ts
 │   │   ├── auth.service.ts
+│   │   ├── authHint.ts            # Non-sensitive profile snapshot for first paint
 │   │   ├── requestCache.ts        # cachedGet, SWR, in-flight dedup, auth scoping
 │   │   ├── session.service.ts
 │   │   ├── title.service.ts       # toggleLike, getCommentLikers, voteCommentPoll

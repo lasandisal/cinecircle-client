@@ -121,7 +121,7 @@ export const SoloRecommendationPage: React.FC = () => {
   };
 
   const handlePromptSearch = () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() || loading) return;
     fetchRecommendations();
   };
 
@@ -333,7 +333,7 @@ export const SoloRecommendationPage: React.FC = () => {
             <button
               onClick={handlePromptSearch}
               disabled={!aiPrompt.trim() || loading}
-              className="py-2.5 px-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-1.5 transition-all shrink-0"
+              className="py-2.5 px-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-1.5 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-violet-600"
             >
               <span>Search Prompt</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -409,10 +409,10 @@ export const SoloRecommendationPage: React.FC = () => {
             <button
               onClick={handleFatigueBreak}
               disabled={fatigueActive}
-              className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition-colors"
+              className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-              <span>Stuck? Break Decision Fatigue</span>
+              <span>{fatigueActive ? 'Finding a pick…' : 'Stuck? Break Decision Fatigue'}</span>
             </button>
           )}
         </div>
@@ -424,7 +424,8 @@ export const SoloRecommendationPage: React.FC = () => {
             <button
               type="button"
               onClick={isTrendingMode ? fetchTrending : fetchRecommendations}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors"
+              disabled={loading}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-600"
             >
               Try again
             </button>

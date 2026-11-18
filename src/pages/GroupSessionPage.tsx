@@ -28,6 +28,7 @@ import { titleService } from '../services/title.service';
 import { userService } from '../services/user.service';
 import { socialService, type ActiveCircleItem } from '../services/social.service';
 import { useToast } from '../hooks/useToast';
+import { usePendingActions } from '../hooks/usePendingActions';
 import type { CommunityPerson, ConnectionPerson, Title } from '../types';
 
 export const GroupSessionPage: React.FC = () => {
@@ -39,6 +40,9 @@ export const GroupSessionPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const toast = useToast();
+  // Guards per-title so a double-click cannot cast two votes or fire the same
+  // mutation twice before the UI re-renders as disabled.
+  const { begin: beginAction, end: endAction, isPending } = usePendingActions();
 
   const [activeSession, setActiveSession] = useState<GroupSessionDetail | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState(initialCode);
@@ -54,6 +58,7 @@ export const GroupSessionPage: React.FC = () => {
   const [newMood, setNewMood] = useState('Mind-Bending');
   const [newMaxRuntime, setNewMaxRuntime] = useState<number>(140);
   const [creating, setCreating] = useState(false);
+  const [invitingMembers, setInvitingMembers] = useState(false);
   const [connections, setConnections] = useState<ConnectionPerson[]>([]);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
@@ -397,6 +402,7 @@ export const GroupSessionPage: React.FC = () => {
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     const clean = joinCodeInput.replace(/^#/, '').toUpperCase().trim();
     if (!clean) return;
     setSearchParams({ code: clean });
@@ -405,6 +411,7 @@ export const GroupSessionPage: React.FC = () => {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creating) return;
     if (!isAuthenticated) {
       navigate('/login', { state: { from: { pathname: '/group' } } });
       return;
@@ -449,8 +456,9 @@ export const GroupSessionPage: React.FC = () => {
   };
 
   const handleInviteMembers = async () => {
-    if (!activeSession || selectedParticipantIds.length === 0) return;
+    if (!activeSession || selectedParticipantIds.length === 0 || invitingMembers) return;
     try {
+      setInvitingMembers(true);
       await sessionService.inviteMembers(activeSession._id, selectedParticipantIds);
       setInviteModalOpen(false);
       setSelectedParticipantIds([]);
@@ -461,11 +469,14 @@ export const GroupSessionPage: React.FC = () => {
       const message = err.response?.data?.error || 'Failed to send invitations.';
       setError(message);
       toast.error(message);
+    } finally {
+      setInvitingMembers(false);
     }
   };
 
   const handleDeleteSession = async () => {
     if (!activeSession || !user || activeSession.host?._id !== user._id) return;
+    if (deletingSession) return;
     if (!window.confirm('Delete this circle? All invitations and room activity will be removed.')) return;
 
     try {
@@ -488,6 +499,7 @@ export const GroupSessionPage: React.FC = () => {
 
   const handleStartNewRound = async () => {
     if (!activeSession || !user || activeSession.host?._id !== user._id) return;
+    if (reopeningSession) return;
     if (
       !window.confirm(
         'Start a new voting round in this room? The current votes and winner will be cleared, but the shortlist and room code will remain.'
@@ -526,6 +538,7 @@ export const GroupSessionPage: React.FC = () => {
     }
 
     const tIdStr = titleId.toString();
+    if (!beginAction(`vote:${tIdStr}`)) return;
     const myUserId = (user?._id || (user as any)?.id)?.toString();
 
     // Optimistically update personal vote
@@ -591,6 +604,8 @@ export const GroupSessionPage: React.FC = () => {
       setTimeout(() => setError(null), 5000);
       // Roll the optimistic vote back.
       loadSessionByCode(activeSession.joinCode, true);
+    } finally {
+      endAction(`vote:${tIdStr}`);
     }
   };
 
@@ -656,6 +671,7 @@ export const GroupSessionPage: React.FC = () => {
 
   const handleAddTitleToShortlist = async (title: Title) => {
     if (!activeSession) return;
+    if (addingTitleId) return;
     if (!isAuthenticated) {
       navigate('/login', {
         state: { from: { pathname: '/group', search: `?code=${activeSession.joinCode}` } },
@@ -888,10 +904,17 @@ export const GroupSessionPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => void handleInviteMembers()}
-                disabled={selectedParticipantIds.length === 0}
-                className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold"
+                disabled={selectedParticipantIds.length === 0 || invitingMembers}
+                className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-2"
               >
-                Send Invitations ({selectedParticipantIds.length})
+                {invitingMembers ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Sending Invitations...</span>
+                  </>
+                ) : (
+                  <span>Send Invitations ({selectedParticipantIds.length})</span>
+                )}
               </button>
             </div>
           </div>
@@ -1220,7 +1243,8 @@ export const GroupSessionPage: React.FC = () => {
                     <div className="p-4 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
                       <button
                         onClick={() => handleVote(title._id || title.tmdbId, 'yes')}
-                        className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        disabled={isPending(`vote:${String(title._id || title.tmdbId)}`)}
+                        className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           myVote === 'yes'
                             ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
                             : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -1232,7 +1256,8 @@ export const GroupSessionPage: React.FC = () => {
 
                       <button
                         onClick={() => handleVote(title._id || title.tmdbId, 'no')}
-                        className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        disabled={isPending(`vote:${String(title._id || title.tmdbId)}`)}
+                        className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           myVote === 'no'
                             ? 'bg-red-500 text-white shadow-md shadow-red-500/30'
                             : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
@@ -1704,7 +1729,7 @@ export const GroupSessionPage: React.FC = () => {
             <button
               type="submit"
               disabled={creating}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-violet-600"
             >
               {creating ? (
                 <>
