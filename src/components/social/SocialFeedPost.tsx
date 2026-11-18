@@ -11,6 +11,7 @@ export interface FeedPostProps {
   /** Whether the currently signed-in user has already liked this post. */
   likedByMe?: boolean;
   author: {
+    id: string;
     name: string;
     handle: string;
     avatar: string;
@@ -364,21 +365,40 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
     }
   };
 
+  const authorProfilePath = post.author.id ? `/profile/${post.author.id}` : null;
+  const authorAvatarClass =
+    'w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-700 hover:border-indigo-500 transition-colors';
+
   return (
     <article className="bg-slate-900/40 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4 transition-all duration-200 backdrop-blur-sm shadow-sm">
       {/* Header: User Info & Mutual Badge */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <img
-            src={post.author.avatar}
-            alt={post.author.name}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-700 shrink-0"
-          />
+          {authorProfilePath ? (
+            <Link
+              to={authorProfilePath}
+              className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              aria-label={`View ${post.author.name}'s profile`}
+            >
+              <img src={post.author.avatar} alt={post.author.name} className={authorAvatarClass} />
+            </Link>
+          ) : (
+            <img src={post.author.avatar} alt={post.author.name} className={authorAvatarClass} />
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs sm:text-sm font-bold text-white hover:text-indigo-400 cursor-pointer truncate">
-                {post.author.name}
-              </span>
+              {authorProfilePath ? (
+                <Link
+                  to={authorProfilePath}
+                  className="text-xs sm:text-sm font-bold text-white hover:text-indigo-400 hover:underline truncate"
+                >
+                  {post.author.name}
+                </Link>
+              ) : (
+                <span className="text-xs sm:text-sm font-bold text-white truncate">
+                  {post.author.name}
+                </span>
+              )}
               <span className="text-[11px] text-slate-500 truncate">{post.author.handle}</span>
             </div>
             <span className="text-[10px] sm:text-[11px] text-slate-500 block">{post.timestamp}</span>
@@ -388,7 +408,9 @@ export const SocialFeedPost: React.FC<{ post: FeedPostProps }> = ({ post }) => {
         {post.author.mutualCount ? (
           <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center gap-1 shrink-0">
             <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-            <span>{post.author.mutualCount} mutuals</span>
+            <span>
+              {post.author.mutualCount} mutual{post.author.mutualCount === 1 ? '' : 's'}
+            </span>
           </span>
         ) : (
           /* Comment count for this post - the stray "0" that used to sit here

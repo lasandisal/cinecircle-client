@@ -161,6 +161,9 @@ export interface CommunityPerson {
   matchExplanation?: string;
   /** 'taste' | 'watched' | 'both' | 'none' */
   matchBasis?: 'taste' | 'watched' | 'both' | 'none';
+  /** Viewer-relative state, so the directory can offer the right action. */
+  connectionStatus?: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+  connectionRequestId?: string;
 }
 
 export type ReactionEmoji = 'like' | 'love' | 'fire' | 'mindblown' | 'popcorn' | 'sad';

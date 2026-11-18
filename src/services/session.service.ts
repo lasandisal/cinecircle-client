@@ -12,6 +12,8 @@ export interface GroupSessionDetail {
   shortlist: any[];
   status: 'open' | 'closed';
   finalPick?: any;
+  /** Verdict text persisted when the host locked the room. */
+  aiPitch?: string | null;
   createdAt: string;
 }
 

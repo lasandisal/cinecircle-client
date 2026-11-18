@@ -8,6 +8,7 @@ import { useAppSelector } from '../../hooks/useAppRedux';
 
 import { socialService, type UserSuggestion } from '../../services/social.service';
 import { userService } from '../../services/user.service';
+import { CommunityDirectoryModal } from './CommunityDirectoryModal';
 
 export const RightSocialSidebar: React.FC = () => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -19,6 +20,7 @@ export const RightSocialSidebar: React.FC = () => {
   const [trendingSource, setTrendingSource] = useState<'tmdb' | 'catalogue'>('catalogue');
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [tasteMatches, setTasteMatches] = useState<UserSuggestion[]>([]);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +72,8 @@ export const RightSocialSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-80 shrink-0 space-y-6 hidden xl:block">
+    <>
+      <aside className="w-80 shrink-0 space-y-6 hidden xl:block">
       {/* Quick Join Room Card */}
       <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900/50 to-slate-900/40 border border-indigo-500/25 rounded-2xl p-4 space-y-3 backdrop-blur-sm shadow-sm">
         <div className="flex items-center gap-2">
@@ -110,9 +113,13 @@ export const RightSocialSidebar: React.FC = () => {
             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
               Suggested Members
             </h4>
-            <Link to="/profile" className="text-[10px] text-slate-400 hover:text-indigo-300 transition-colors">
+            <button
+              type="button"
+              onClick={() => setDirectoryOpen(true)}
+              className="text-[10px] text-slate-400 hover:text-indigo-300 transition-colors"
+            >
               See all
-            </Link>
+            </button>
           </div>
 
           <div className="space-y-3">
@@ -240,5 +247,11 @@ export const RightSocialSidebar: React.FC = () => {
         </div>
       </div>
     </aside>
+
+      <CommunityDirectoryModal
+        isOpen={directoryOpen}
+        onClose={() => setDirectoryOpen(false)}
+      />
+    </>
   );
 };

@@ -145,7 +145,10 @@ export const GroupSessionPage: React.FC = () => {
   // Real-time transport + final decision payload
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [aiPitch, setAiPitch] = useState<string | null>(null);
-  const [aiPitchGenerated, setAiPitchGenerated] = useState(false);
+  // The stored session keeps the verdict text but not how it was produced, so
+  // a room loaded fresh cannot honestly claim "AI-generated". The live lock
+  // payload is the only authoritative source for provenance.
+  const [aiPitchOrigin, setAiPitchOrigin] = useState<'generated' | 'fallback' | 'unknown'>('unknown');
   const [compromiseScores, setCompromiseScores] = useState<
     { titleId: string; score: number; yesCount: number; noCount: number }[]
   >([]);
@@ -240,7 +243,7 @@ export const GroupSessionPage: React.FC = () => {
         setAllVotes(payload.votes || []);
         setVotedMap({});
         setAiPitch(null);
-        setAiPitchGenerated(false);
+        setAiPitchOrigin('unknown');
         setCompromiseScores([]);
       });
 
@@ -345,7 +348,7 @@ export const GroupSessionPage: React.FC = () => {
     if (Array.isArray(payload?.scores)) setCompromiseScores(payload.scores);
     if (payload?.aiPitch) {
       setAiPitch(payload.aiPitch);
-      setAiPitchGenerated(!!payload.aiPitchGenerated);
+      setAiPitchOrigin(payload.aiPitchGenerated ? 'generated' : 'fallback');
     }
   };
 
@@ -374,6 +377,14 @@ export const GroupSessionPage: React.FC = () => {
 
       if (data?.session) {
         setActiveSession(data.session);
+
+        // Locked rooms persist the verdict on the session document. Hydrate it
+        // here so every member (and the host after a refresh) sees the same
+        // message, not just the client that called the lock endpoint.
+        const storedPitch =
+          typeof data.session.aiPitch === 'string' ? data.session.aiPitch.trim() : '';
+        setAiPitch(storedPitch || null);
+        setAiPitchOrigin('unknown');
 
         if (data.votes) {
           setAllVotes(data.votes);
@@ -515,7 +526,7 @@ export const GroupSessionPage: React.FC = () => {
       setAllVotes(result.votes || []);
       setVotedMap({});
       setAiPitch(null);
-      setAiPitchGenerated(false);
+      setAiPitchOrigin('unknown');
       setCompromiseScores([]);
       setError(null);
       toast.success('New voting round started.');
@@ -965,13 +976,18 @@ export const GroupSessionPage: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400 mb-1 flex items-center gap-1.5">
                       <Sparkles className="w-3 h-3" />
                       AI Compromise Verdict
-                      {/* Honest provenance: only claim AI wrote it if it did. */}
+                      {/* Honest provenance: only claim AI wrote it when the live
+                          lock payload said so. A verdict loaded from the
+                          database is shown as a saved decision because the
+                          source was not persisted. */}
                       <span
                         className={`text-[9px] font-bold normal-case ${
-                          aiPitchGenerated ? 'text-emerald-400/80' : 'text-slate-500'
+                          aiPitchOrigin === 'generated' ? 'text-emerald-400/80' : 'text-slate-500'
                         }`}
                       >
-                        {aiPitchGenerated ? 'AI-generated' : 'classic CineCircle verdict (AI unavailable)'}
+                        {aiPitchOrigin === 'generated' && 'AI-generated'}
+                        {aiPitchOrigin === 'fallback' && 'classic CineCircle verdict (AI unavailable)'}
+                        {aiPitchOrigin === 'unknown' && 'saved verdict'}
                       </span>
                     </p>
                     <p className="text-xs text-cyan-100/90 leading-relaxed italic">

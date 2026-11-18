@@ -12,6 +12,7 @@ import {
   UserPlus,
   Share2,
   Check,
+  UserMinus,
   Star,
   ExternalLink,
   ShieldCheck,
@@ -42,7 +43,8 @@ import { clearAuthScopedCache } from '../services/requestCache';
 import { StreamingBadge } from '../components/common/StreamingBadge';
 import { useToast } from '../hooks/useToast';
 import { TasteOnboardingWizard } from '../components/onboarding/TasteOnboardingWizard';
-import type { UserProfileData, CommunityPerson, ConnectionGraph, ConnectionPerson } from '../types';
+import type { UserProfileData, ConnectionGraph, ConnectionPerson } from '../types';
+import { CommunityDirectoryModal } from '../components/social/CommunityDirectoryModal';
 
 export const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -81,9 +83,6 @@ export const ProfilePage: React.FC = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Find people state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [people, setPeople] = useState<CommunityPerson[]>([]);
-  const [searchingPeople, setSearchingPeople] = useState(false);
   const [connectionLoading, setConnectionLoading] = useState(false);
 
   // Social graph modal
@@ -180,25 +179,6 @@ export const ProfilePage: React.FC = () => {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  // Load community members when Find People modal opens
-  const loadCommunityPeople = useCallback(async (query = '') => {
-    try {
-      setSearchingPeople(true);
-      const results = await userService.searchPeople(query);
-      setPeople(results);
-    } catch (err) {
-      console.error('Failed to search community members:', err);
-    } finally {
-      setSearchingPeople(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isFindPeopleOpen) {
-      loadCommunityPeople(searchQuery);
-    }
-  }, [isFindPeopleOpen, searchQuery, loadCommunityPeople]);
-
   const handleConnectionRequest = async () => {
     if (!profile || !currentUser) {
       navigate('/login');
@@ -218,6 +198,40 @@ export const ProfilePage: React.FC = () => {
     } catch (err) {
       console.error('Failed to send connection request:', err);
       toast.error('Could not send the connection request. Please try again.');
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!profile || !currentUser) {
+      navigate('/login');
+      return;
+    }
+    if (!window.confirm(`Disconnect from ${profile.name}? You can send a new request later.`)) {
+      return;
+    }
+    setConnectionLoading(true);
+    try {
+      await userService.removeConnection(profile._id);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              connectionStatus: 'none',
+              connectionRequestId: undefined,
+              isMutualConnection: false,
+              stats: {
+                ...prev.stats,
+                connectionsCount: Math.max(0, (prev.stats.connectionsCount ?? 1) - 1),
+              },
+            }
+          : prev
+      );
+      toast.success('Connection removed.');
+    } catch (err: any) {
+      console.error('Failed to remove connection:', err);
+      toast.error(err?.response?.data?.error || 'Could not remove the connection. Please try again.');
     } finally {
       setConnectionLoading(false);
     }
@@ -532,27 +546,14 @@ export const ProfilePage: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {/* Identity line. The email is only sent unmasked to the account owner and
-                    to admins - everyone else receives a masked copy - so it is
-                    never rendered on someone else's profile. The "Real Account"
-                    badge was previously shown unconditionally, including for
-                    accounts with no verified address. */}
-                <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
-                  {isSelf && profile.email && (
-                    <span className="text-xs text-slate-400 font-mono tracking-wide">
-                      {profile.email}
-                    </span>
-                  )}
-                  {isSelf ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
-                      <ShieldCheck className="w-2.5 h-2.5" /> Verified email
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700">
-                      Email hidden
-                    </span>
-                  )}
-                </div>
+                {/* Only the owner's email is shown; everyone else gets no
+                    placeholder. Rendering "Email hidden" revealed a privacy
+                    decision without adding any information. */}
+                {isSelf && profile.email && (
+                  <p className="mt-1 text-xs text-slate-400 font-mono tracking-wide">
+                    {profile.email}
+                  </p>
+                )}
               </div>
 
               {/* Action Buttons (Edit Profile, Find More People, Share, Follow) */}
@@ -605,17 +606,28 @@ export const ProfilePage: React.FC = () => {
                       </span>
                     )}
                     <button
-                      onClick={handleConnectionRequest}
-                      disabled={connectionLoading || profile.connectionStatus === 'pending_sent' || profile.connectionStatus === 'accepted'}
+                      onClick={
+                        profile.connectionStatus === 'accepted'
+                          ? handleDisconnect
+                          : handleConnectionRequest
+                      }
+                      disabled={connectionLoading || profile.connectionStatus === 'pending_sent'}
                       className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${
-                        profile.connectionStatus === 'accepted' || profile.connectionStatus === 'pending_sent'
-                          ? 'bg-slate-800 text-slate-300 border border-slate-700'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
+                        profile.connectionStatus === 'accepted'
+                          ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : profile.connectionStatus === 'pending_sent'
+                            ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
                       }`}
                     >
                       {profile.connectionStatus === 'accepted' ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" /><span>Connected</span>
+                          {connectionLoading ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <UserMinus className="w-3.5 h-3.5" />
+                          )}
+                          <span>{connectionLoading ? 'Removing…' : 'Disconnect'}</span>
                         </>
                       ) : profile.connectionStatus === 'pending_sent' ? (
                         <span>Request Sent</span>
@@ -1687,94 +1699,10 @@ export const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {isFindPeopleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl shadow-black space-y-5 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2.5">
-                <Users className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-white font-['Outfit']">Find More People</h3>
-              </div>
-              <button
-                onClick={() => setIsFindPeopleOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Real-time Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search real accounts by name, @handle, or email..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-              />
-            </div>
-
-            {/* Community Members List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {searchingPeople ? (
-                <div className="py-12 flex flex-col items-center justify-center space-y-2">
-                  <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-                  <p className="text-xs text-slate-400">Searching community members...</p>
-                </div>
-              ) : people.length > 0 ? (
-                people.map((person) => (
-                  <div
-                    key={person.id}
-                    className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Link
-                        to={`/profile/${person.id}`}
-                        onClick={() => setIsFindPeopleOpen(false)}
-                        className="shrink-0"
-                      >
-                        <img
-                          src={person.avatar}
-                          alt={person.name}
-                          className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-500/30 hover:ring-indigo-500 transition-all"
-                        />
-                      </Link>
-
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Link
-                            to={`/profile/${person.id}`}
-                            onClick={() => setIsFindPeopleOpen(false)}
-                            className="text-xs font-bold text-white hover:text-indigo-400 transition-colors truncate font-['Outfit']"
-                          >
-                            {person.name}
-                          </Link>
-                          <span className="text-[11px] text-indigo-400 font-medium">{person.handle}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-mono truncate">{person.email}</p>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 pt-0.5">
-                          <span className="text-violet-400 font-semibold">{person.stats.circlesCount} Circles</span>
-                          <span>•</span>
-                          <span className="text-teal-400 font-semibold">Member</span>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))
-              ) : (
-                <div className="py-10 text-center space-y-2">
-                  <p className="text-xs text-slate-300 font-semibold">No people found matching "{searchQuery}"</p>
-                  <p className="text-[11px] text-slate-500">
-                    Try searching for MishtiX, EventSphere, PulseFit, or Lasandi.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <CommunityDirectoryModal
+        isOpen={isFindPeopleOpen}
+        onClose={() => setIsFindPeopleOpen(false)}
+      />
 
       {/* ========================================================================= */}
       {/* 6. MODAL: TASTE PROFILE ONBOARDING WIZARD */}

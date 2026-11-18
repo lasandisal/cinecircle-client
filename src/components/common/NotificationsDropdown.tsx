@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, Users, UserPlus, Sparkles, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Users, UserPlus, UserCheck, Sparkles, CheckCheck, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/useAppRedux';
 import { userService } from '../../services/user.service';
@@ -7,7 +7,7 @@ import { sessionService } from '../../services/session.service';
 
 export interface NotificationItem {
   id: string;
-  type: 'circle' | 'rating' | 'follow' | 'verdict';
+  type: 'circle' | 'rating' | 'follow' | 'connection' | 'verdict';
   actorName: string;
   actorAvatar: string;
   title: string;
@@ -336,6 +336,7 @@ export const NotificationsDropdown: React.FC = () => {
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
                           {n.type === 'circle' && <Users className="w-2.5 h-2.5 text-indigo-400" />}
                           {n.type === 'follow' && <UserPlus className="w-2.5 h-2.5 text-emerald-400" />}
+                          {n.type === 'connection' && <UserCheck className="w-2.5 h-2.5 text-teal-400" />}
                           {n.type === 'verdict' && <Sparkles className="w-2.5 h-2.5 text-cyan-400" />}
                         </div>
                       </div>

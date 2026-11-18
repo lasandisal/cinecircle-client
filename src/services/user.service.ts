@@ -72,10 +72,11 @@ export const userService = {
   },
 
   /**
-   * Toggle follow/unfollow a user
+   * Send a connection request to another member.
    */
   async requestConnection(targetUserId: string): Promise<{ status: 'pending_sent' }> {
     const res = await api.post('/users/connections/request', { targetUserId });
+    invalidateCache(['/users/search', '/users/connections', '/users/notifications']);
     return res.data.data;
   },
 
@@ -84,6 +85,17 @@ export const userService = {
     status: 'accepted' | 'rejected'
   ): Promise<{ status: 'accepted' | 'rejected' }> {
     const res = await api.post('/users/connections/respond', { requestId, status });
+    invalidateCache(['/users/search', '/users/connections', '/users/notifications', '/users/profile']);
+    return res.data.data;
+  },
+
+  /**
+   * Remove an accepted connection. The other member keeps their profile and
+   * both sides can send a fresh request later.
+   */
+  async removeConnection(targetUserId: string): Promise<{ status: 'none' }> {
+    const res = await api.delete(`/users/connections/${targetUserId}`);
+    invalidateCache(['/users/search', '/users/connections', '/users/notifications', '/users/profile']);
     return res.data.data;
   },
 
